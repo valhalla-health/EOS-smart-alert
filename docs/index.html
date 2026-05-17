@@ -169,7 +169,7 @@ input:focus,select:focus,textarea:focus { outline:2px solid var(--teal); outline
 .topbar-title .breadcrumb { color:var(--text-3); font-weight:400; margin-right:6px; }
 .topbar-right { margin-left:auto; display:flex; align-items:center; gap:12px; }
 .live-clock { font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--text-3); display:flex; align-items:center; gap:8px; }
-.live-clock .dot { width:6px; height:6px; border-radius:50%; background:#2c7a3e; animation:blink 2s infinite; }
+.live-clock .dot { width:6px; height:6px; border-radius:50%; background:var(--green); animation:blink 2s infinite; }
 @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.35} }
 
 .icon-btn { width:36px; height:36px; border-radius:8px; display:grid; place-items:center; color:var(--text-2); position:relative; transition:background .12s; }
@@ -441,8 +441,40 @@ h3 .num { display:inline-flex; align-items:center; justify-content:center; width
   .detail-grid,.triage-wrap,.calc-grid { grid-template-columns:1fr; }
   .row-4 { grid-template-columns:1fr 1fr; }
 }
+/* ── OVERDUE column emphasis ─────────────────────── */
+.board-col.overdue { border-top-width:5px; }
+
+/* ── Logout icon on dark sidebar ─────────────────── */
+.sidebar .icon-btn:hover { background:rgba(255,255,255,.08); }
+.sidebar .icon-btn { color:rgba(255,255,255,.5); }
+
+/* ── Mobile sidebar overlay ──────────────────────── */
+.sidebar-overlay {
+  display:none;
+  position:fixed; inset:0; z-index:199;
+  background:rgba(0,0,0,.45);
+}
+.hamburger-btn { display:none; }
+
 @media (max-width:720px) {
-  .sidebar { display:none; }
+  /* Sidebar slides in from left */
+  .sidebar {
+    position:fixed; top:0; left:0; height:100vh;
+    z-index:200; transform:translateX(-100%);
+    transition:transform .25s cubic-bezier(.4,0,.2,1);
+    box-shadow:none;
+  }
+  .sidebar.open {
+    transform:translateX(0);
+    box-shadow:4px 0 24px rgba(0,0,0,.4);
+  }
+  /* Show overlay when sidebar open */
+  .sidebar.open ~ * .sidebar-overlay,
+  .sidebar-overlay { display:block; }
+
+  /* Hamburger visible */
+  .hamburger-btn { display:grid; }
+
   .stat-grid,.board { grid-template-columns:1fr 1fr; }
   .content { padding:16px; }
   .row-2,.row-3 { grid-template-columns:1fr; }
@@ -1152,14 +1184,14 @@ function Dashboard({ patients, vitals, onOpenPatient, onGo }) {
           <div key={col.key} className={`board-col ${col.key}`}>
             <div className="board-col-head">
               <span className={`dot-status ${col.key==='overdue'?'red':col.key==='soon'?'amber':col.key==='ok'?'teal':'green'}`}/>
-              <span className="title">{col.label} · {col.en}</span>
+              <span className="title" style={col.key==='overdue'?{color:'var(--red)',fontWeight:800}:{}}>{col.label} · {col.en}</span>
               <span className="count">{patients.filter(p=>tpStatus(p,vitals).cat===col.key).length}</span>
             </div>
             {patients.filter(p=>tpStatus(p,vitals).cat===col.key).map(p => (
               <PatientCard key={p.hn} patient={p} vitals={vitals} onClick={() => onOpenPatient(p.hn)}/>
             ))}
             {patients.filter(p=>tpStatus(p,vitals).cat===col.key).length===0 && (
-              <div style={{padding:'24px 8px',textAlign:'center',color:'var(--text-3)',fontSize:12,fontStyle:'italic'}}>ไม่มีเคส</div>
+              <div style={{padding:'32px 12px',textAlign:'center',color:'var(--text-4)',fontSize:13}}>— ไม่มีเคส —</div>
             )}
           </div>
         ))}
@@ -1188,7 +1220,7 @@ function PatientDetail({ patient: p, vitals, onBack, onAddPE, onDischarge, sessi
         <div className="flex items-center gap-12">
           <button className="btn btn-ghost btn-sm" onClick={onBack}><Icon name="arrow_left"/>กลับ Ward Board</button>
           {rc.canDischarge && !p.archived && (
-            <button className="btn btn-sm" style={{background:'#fef2f2',border:'1px solid var(--red)',color:'var(--red-2)'}} onClick={() => onDischarge(p.hn)}>Discharge</button>
+            <button className="btn btn-danger btn-sm" onClick={() => onDischarge(p.hn)}>Discharge</button>
           )}
         </div>
       </div>
@@ -1298,7 +1330,7 @@ function PatientDetail({ patient: p, vitals, onBack, onAddPE, onDischarge, sessi
                   <div key={tp} className={`timeline-row ${cls}`}>
                     <div className="age">
                       {tp}
-                      {isABX && <div style={{fontSize:9,color:'var(--amber-2)',fontWeight:700,marginTop:2}}>ABX TO</div>}
+                      {isABX && <span className="badge badge-navy" style={{fontSize:9,padding:'1px 5px',marginTop:3,display:'inline-block'}}>ABX TO</span>}
                     </div>
                     <div className="body">
                       <div className="ts">
@@ -1523,7 +1555,7 @@ function PEForm({ patient: p, vitals, onSave, onClose, session }) {
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal" style={{maxWidth:700}} onClick={e=>e.stopPropagation()}>
+      <div className="modal" style={{maxWidth:'min(700px,calc(100vw - 32px))'}} onClick={e=>e.stopPropagation()}>
         <div className="flex items-center gap-12 mb-12">
           <div>
             <h3 style={{marginBottom:0}}>บันทึก Serial PE · <span className="mono">{tp}</span></h3>
@@ -1780,8 +1812,8 @@ function ABXApproval({ patients, vitals, onApprove, session }) {
               {v.management&&<><br/>Plan: {v.management}</>}
             </div>
             <div style={{display:'flex',gap:10,marginTop:14}}>
-              <button className="btn btn-sm" style={{background:'#fef2f2',border:'2px solid var(--red)',color:'var(--red-2)',fontWeight:700}} onClick={()=>onApprove(v.ts,'stop',pt?.name||v.hn)}>🛑 หยุด Antibiotic</button>
-              <button className="btn btn-sm" style={{background:'#eff6ff',border:'2px solid #3b82f6',color:'#1d4ed8',fontWeight:700}} onClick={()=>onApprove(v.ts,'continue',pt?.name||v.hn)}>▶️ ต่อ Antibiotic</button>
+              <button className="btn btn-danger btn-sm" onClick={()=>onApprove(v.ts,'stop',pt?.name||v.hn)}>🛑 หยุด Antibiotic</button>
+              <button className="btn btn-ghost btn-sm" onClick={()=>onApprove(v.ts,'continue',pt?.name||v.hn)}>▶️ ต่อ Antibiotic</button>
             </div>
           </div>
         );
@@ -2022,7 +2054,8 @@ function App() {
   const [vitals,   setVitals]   = useState(() => EOS.getStore(EOS.STORE.vitals, []));
   const [peTarget, setPeTarget] = useState(null);
   const [pinModal, setPinModal] = useState(null);   // {msg, resolve}
-  const [, tick] = useState(0);
+  const [, tick]          = useState(0);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // ── Effects ───────────────────────────────────
   useEffect(() => { EOS.setStore(EOS.STORE.patients, patients); }, [patients]);
@@ -2099,13 +2132,16 @@ function App() {
   const abxPending = vitals.filter(v => EOS.ABX_TPS.has(v.ageHr) && !v.abxApproved).length;
 
   // ── Alert ticker ──────────────────────────────
-  const tickerMsgs = [];
+  const tickerItems = []; // {msg, hn}
   patients.forEach(p => {
     const last = vitalsFor(p.hn, vitals).slice(-1)[0];
-    if (last && evalVitals(last).some(i=>i.sev==='red')) tickerMsgs.push(`${p.name} · ${p.bed||p.hn} · ผิดปกติที่ ${last.ageHr}`);
+    if (last && evalVitals(last).some(i=>i.sev==='red'))
+      tickerItems.push({msg:`${p.name} · ${p.bed||p.hn} · ผิดปกติที่ ${last.ageHr}`, hn:p.hn});
     const st = tpStatus(p, vitals);
-    if (st.cat==='overdue'&&!p.archived) tickerMsgs.push(`${p.bed||p.hn} · เลยกำหนด ${st.tp}`);
+    if (st.cat==='overdue'&&!p.archived)
+      tickerItems.push({msg:`${p.bed||p.hn} · เลยกำหนด ${st.tp}`, hn:p.hn});
   });
+  const tickerMsgs = tickerItems.map(t=>t.msg); // backward compat for alertCount
 
   // ── Sidebar nav items (role-filtered) ─────────
   const navItems = NAV.filter(n => n.roles.includes(session.role));
@@ -2113,8 +2149,13 @@ function App() {
 
   return (
     <div className="app-shell">
+      {/* ─── MOBILE SIDEBAR OVERLAY ───────────── */}
+      {sidebarOpen && (
+        <div className="sidebar-overlay" onClick={()=>setSidebarOpen(false)}/>
+      )}
+
       {/* ─── SIDEBAR ──────────────────────────── */}
-      <aside className="sidebar">
+      <aside className={`sidebar${sidebarOpen?' open':''}`}>
         <div className="sidebar-brand">
           <div className="brand-row">
             <div className="brand-mark">
@@ -2148,7 +2189,7 @@ function App() {
                 {showSection && <div className="nav-section">{n.section}</div>}
                 <button
                   className={`nav-item${isActive?' active':''}`}
-                  onClick={() => { setView(n.key); if (n.key!=='patient') setOpenHn(null); }}>
+                  onClick={() => { setView(n.key); if (n.key!=='patient') setOpenHn(null); setSidebarOpen(false); }}>
                   <Icon name={n.icon} size={17}/>
                   <span>{n.label}</span>
                   {count>0 && <span className={`nav-count ${n.key==='alerts'?'alert':n.key==='abx'?'warn':n.key==='dashboard'?'warn':''}`}>{count}</span>}
@@ -2170,17 +2211,26 @@ function App() {
 
       {/* ─── MAIN ─────────────────────────────── */}
       <main className="main">
-        {/* Alert ticker */}
-        {tickerMsgs.length>0 && (
-          <div className="alert-ticker">
+        {/* Alert ticker — clickable → go to patient or alerts */}
+        {tickerItems.length>0 && (
+          <div className="alert-ticker" style={{cursor:'pointer'}} onClick={()=>setView('alerts')}>
             <Icon name="warn" size={16}/>
             <span className="label">URGENT</span>
-            <div className="messages"><span>{tickerMsgs.join(' · ')} · {tickerMsgs.join(' · ')}</span></div>
+            <div className="messages">
+              <span>{[...tickerItems,...tickerItems].map(t=>t.msg).join('  ·  ')}</span>
+            </div>
+            <span style={{flexShrink:0,fontSize:11,opacity:.8,paddingLeft:8,borderLeft:'1px solid rgba(255,255,255,.25)'}}>ดูทั้งหมด →</span>
           </div>
         )}
 
         {/* Topbar */}
         <header className="topbar">
+          {/* Hamburger — mobile only */}
+          <button className="hamburger-btn icon-btn" onClick={()=>setSidebarOpen(s=>!s)} title="Menu">
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <line x1="2" y1="4" x2="16" y2="4"/><line x1="2" y1="9" x2="16" y2="9"/><line x1="2" y1="14" x2="16" y2="14"/>
+            </svg>
+          </button>
           <div className="topbar-title">
             {view==='patient'&&currentPatient ? (
               <><span className="breadcrumb">Patients /</span> {currentPatient.name}</>

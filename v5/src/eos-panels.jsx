@@ -138,14 +138,14 @@ function Dashboard({ patients, vitals, onOpenPatient, onGo }) {
           <div key={col.key} className={`board-col ${col.key}`}>
             <div className="board-col-head">
               <span className={`dot-status ${col.key==='overdue'?'red':col.key==='soon'?'amber':col.key==='ok'?'teal':'green'}`}/>
-              <span className="title">{col.label} · {col.en}</span>
+              <span className="title" style={col.key==='overdue'?{color:'var(--red)',fontWeight:800}:{}}>{col.label} · {col.en}</span>
               <span className="count">{patients.filter(p=>tpStatus(p,vitals).cat===col.key).length}</span>
             </div>
             {patients.filter(p=>tpStatus(p,vitals).cat===col.key).map(p => (
               <PatientCard key={p.hn} patient={p} vitals={vitals} onClick={() => onOpenPatient(p.hn)}/>
             ))}
             {patients.filter(p=>tpStatus(p,vitals).cat===col.key).length===0 && (
-              <div style={{padding:'24px 8px',textAlign:'center',color:'var(--text-3)',fontSize:12,fontStyle:'italic'}}>ไม่มีเคส</div>
+              <div style={{padding:'32px 12px',textAlign:'center',color:'var(--text-4)',fontSize:13}}>— ไม่มีเคส —</div>
             )}
           </div>
         ))}
@@ -174,7 +174,7 @@ function PatientDetail({ patient: p, vitals, onBack, onAddPE, onDischarge, sessi
         <div className="flex items-center gap-12">
           <button className="btn btn-ghost btn-sm" onClick={onBack}><Icon name="arrow_left"/>กลับ Ward Board</button>
           {rc.canDischarge && !p.archived && (
-            <button className="btn btn-sm" style={{background:'#fef2f2',border:'1px solid var(--red)',color:'var(--red-2)'}} onClick={() => onDischarge(p.hn)}>Discharge</button>
+            <button className="btn btn-danger btn-sm" onClick={() => onDischarge(p.hn)}>Discharge</button>
           )}
         </div>
       </div>
@@ -284,7 +284,7 @@ function PatientDetail({ patient: p, vitals, onBack, onAddPE, onDischarge, sessi
                   <div key={tp} className={`timeline-row ${cls}`}>
                     <div className="age">
                       {tp}
-                      {isABX && <div style={{fontSize:9,color:'var(--amber-2)',fontWeight:700,marginTop:2}}>ABX TO</div>}
+                      {isABX && <span className="badge badge-navy" style={{fontSize:9,padding:'1px 5px',marginTop:3,display:'inline-block'}}>ABX TO</span>}
                     </div>
                     <div className="body">
                       <div className="ts">
@@ -509,7 +509,7 @@ function PEForm({ patient: p, vitals, onSave, onClose, session }) {
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal" style={{maxWidth:700}} onClick={e=>e.stopPropagation()}>
+      <div className="modal" style={{maxWidth:'min(700px,calc(100vw - 32px))'}} onClick={e=>e.stopPropagation()}>
         <div className="flex items-center gap-12 mb-12">
           <div>
             <h3 style={{marginBottom:0}}>บันทึก Serial PE · <span className="mono">{tp}</span></h3>
@@ -766,8 +766,8 @@ function ABXApproval({ patients, vitals, onApprove, session }) {
               {v.management&&<><br/>Plan: {v.management}</>}
             </div>
             <div style={{display:'flex',gap:10,marginTop:14}}>
-              <button className="btn btn-sm" style={{background:'#fef2f2',border:'2px solid var(--red)',color:'var(--red-2)',fontWeight:700}} onClick={()=>onApprove(v.ts,'stop',pt?.name||v.hn)}>🛑 หยุด Antibiotic</button>
-              <button className="btn btn-sm" style={{background:'#eff6ff',border:'2px solid #3b82f6',color:'#1d4ed8',fontWeight:700}} onClick={()=>onApprove(v.ts,'continue',pt?.name||v.hn)}>▶️ ต่อ Antibiotic</button>
+              <button className="btn btn-danger btn-sm" onClick={()=>onApprove(v.ts,'stop',pt?.name||v.hn)}>🛑 หยุด Antibiotic</button>
+              <button className="btn btn-ghost btn-sm" onClick={()=>onApprove(v.ts,'continue',pt?.name||v.hn)}>▶️ ต่อ Antibiotic</button>
             </div>
           </div>
         );

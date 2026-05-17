@@ -62,7 +62,8 @@ function App() {
   const [vitals,   setVitals]   = useState(() => EOS.getStore(EOS.STORE.vitals, []));
   const [peTarget, setPeTarget] = useState(null);
   const [pinModal, setPinModal] = useState(null);   // {msg, resolve}
-  const [, tick] = useState(0);
+  const [, tick]          = useState(0);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // ── Effects ───────────────────────────────────
   useEffect(() => { EOS.setStore(EOS.STORE.patients, patients); }, [patients]);
@@ -139,13 +140,16 @@ function App() {
   const abxPending = vitals.filter(v => EOS.ABX_TPS.has(v.ageHr) && !v.abxApproved).length;
 
   // ── Alert ticker ──────────────────────────────
-  const tickerMsgs = [];
+  const tickerItems = []; // {msg, hn}
   patients.forEach(p => {
     const last = vitalsFor(p.hn, vitals).slice(-1)[0];
-    if (last && evalVitals(last).some(i=>i.sev==='red')) tickerMsgs.push(`${p.name} · ${p.bed||p.hn} · ผิดปกติที่ ${last.ageHr}`);
+    if (last && evalVitals(last).some(i=>i.sev==='red'))
+      tickerItems.push({msg:`${p.name} · ${p.bed||p.hn} · ผิดปกติที่ ${last.ageHr}`, hn:p.hn});
     const st = tpStatus(p, vitals);
-    if (st.cat==='overdue'&&!p.archived) tickerMsgs.push(`${p.bed||p.hn} · เลยกำหนด ${st.tp}`);
+    if (st.cat==='overdue'&&!p.archived)
+      tickerItems.push({msg:`${p.bed||p.hn} · เลยกำหนด ${st.tp}`, hn:p.hn});
   });
+  const tickerMsgs = tickerItems.map(t=>t.msg); // backward compat for alertCount
 
   // ── Sidebar nav items (role-filtered) ─────────
   const navItems = NAV.filter(n => n.roles.includes(session.role));
@@ -153,8 +157,13 @@ function App() {
 
   return (
     <div className="app-shell">
+      {/* ─── MOBILE SIDEBAR OVERLAY ───────────── */}
+      {sidebarOpen && (
+        <div className="sidebar-overlay" onClick={()=>setSidebarOpen(false)}/>
+      )}
+
       {/* ─── SIDEBAR ──────────────────────────── */}
-      <aside className="sidebar">
+      <aside className={`sidebar${sidebarOpen?' open':''}`}>
         <div className="sidebar-brand">
           <div className="brand-row">
             <div className="brand-mark">
@@ -188,7 +197,7 @@ function App() {
                 {showSection && <div className="nav-section">{n.section}</div>}
                 <button
                   className={`nav-item${isActive?' active':''}`}
-                  onClick={() => { setView(n.key); if (n.key!=='patient') setOpenHn(null); }}>
+                  onClick={() => { setView(n.key); if (n.key!=='patient') setOpenHn(null); setSidebarOpen(false); }}>
                   <Icon name={n.icon} size={17}/>
                   <span>{n.label}</span>
                   {count>0 && <span className={`nav-count ${n.key==='alerts'?'alert':n.key==='abx'?'warn':n.key==='dashboard'?'warn':''}`}>{count}</span>}
@@ -210,17 +219,26 @@ function App() {
 
       {/* ─── MAIN ─────────────────────────────── */}
       <main className="main">
-        {/* Alert ticker */}
-        {tickerMsgs.length>0 && (
-          <div className="alert-ticker">
+        {/* Alert ticker — clickable → go to patient or alerts */}
+        {tickerItems.length>0 && (
+          <div className="alert-ticker" style={{cursor:'pointer'}} onClick={()=>setView('alerts')}>
             <Icon name="warn" size={16}/>
             <span className="label">URGENT</span>
-            <div className="messages"><span>{tickerMsgs.join(' · ')} · {tickerMsgs.join(' · ')}</span></div>
+            <div className="messages">
+              <span>{[...tickerItems,...tickerItems].map(t=>t.msg).join('  ·  ')}</span>
+            </div>
+            <span style={{flexShrink:0,fontSize:11,opacity:.8,paddingLeft:8,borderLeft:'1px solid rgba(255,255,255,.25)'}}>ดูทั้งหมด →</span>
           </div>
         )}
 
         {/* Topbar */}
         <header className="topbar">
+          {/* Hamburger — mobile only */}
+          <button className="hamburger-btn icon-btn" onClick={()=>setSidebarOpen(s=>!s)} title="Menu">
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <line x1="2" y1="4" x2="16" y2="4"/><line x1="2" y1="9" x2="16" y2="9"/><line x1="2" y1="14" x2="16" y2="14"/>
+            </svg>
+          </button>
           <div className="topbar-title">
             {view==='patient'&&currentPatient ? (
               <><span className="breadcrumb">Patients /</span> {currentPatient.name}</>

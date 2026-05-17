@@ -158,7 +158,7 @@ input:focus,select:focus,textarea:focus { outline:2px solid var(--teal); outline
 .topbar-title .breadcrumb { color:var(--text-3); font-weight:400; margin-right:6px; }
 .topbar-right { margin-left:auto; display:flex; align-items:center; gap:12px; }
 .live-clock { font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--text-3); display:flex; align-items:center; gap:8px; }
-.live-clock .dot { width:6px; height:6px; border-radius:50%; background:#2c7a3e; animation:blink 2s infinite; }
+.live-clock .dot { width:6px; height:6px; border-radius:50%; background:var(--green); animation:blink 2s infinite; }
 @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.35} }
 
 .icon-btn { width:36px; height:36px; border-radius:8px; display:grid; place-items:center; color:var(--text-2); position:relative; transition:background .12s; }
@@ -430,8 +430,40 @@ h3 .num { display:inline-flex; align-items:center; justify-content:center; width
   .detail-grid,.triage-wrap,.calc-grid { grid-template-columns:1fr; }
   .row-4 { grid-template-columns:1fr 1fr; }
 }
+/* ── OVERDUE column emphasis ─────────────────────── */
+.board-col.overdue { border-top-width:5px; }
+
+/* ── Logout icon on dark sidebar ─────────────────── */
+.sidebar .icon-btn:hover { background:rgba(255,255,255,.08); }
+.sidebar .icon-btn { color:rgba(255,255,255,.5); }
+
+/* ── Mobile sidebar overlay ──────────────────────── */
+.sidebar-overlay {
+  display:none;
+  position:fixed; inset:0; z-index:199;
+  background:rgba(0,0,0,.45);
+}
+.hamburger-btn { display:none; }
+
 @media (max-width:720px) {
-  .sidebar { display:none; }
+  /* Sidebar slides in from left */
+  .sidebar {
+    position:fixed; top:0; left:0; height:100vh;
+    z-index:200; transform:translateX(-100%);
+    transition:transform .25s cubic-bezier(.4,0,.2,1);
+    box-shadow:none;
+  }
+  .sidebar.open {
+    transform:translateX(0);
+    box-shadow:4px 0 24px rgba(0,0,0,.4);
+  }
+  /* Show overlay when sidebar open */
+  .sidebar.open ~ * .sidebar-overlay,
+  .sidebar-overlay { display:block; }
+
+  /* Hamburger visible */
+  .hamburger-btn { display:grid; }
+
   .stat-grid,.board { grid-template-columns:1fr 1fr; }
   .content { padding:16px; }
   .row-2,.row-3 { grid-template-columns:1fr; }
