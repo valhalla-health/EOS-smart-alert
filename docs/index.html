@@ -2014,12 +2014,8 @@ function App() {
   const { useState, useEffect } = React;
 
   // ── State ─────────────────────────────────────
-  const [session, setSession]   = useState(() => {
-    const s = EOS.getSession();
-    // Session ต้องมี token (สร้างหลัง GAS auth) — session เก่าไม่มี token → force login
-    if (!s || !s.token) { EOS.clearSession(); return null; }
-    return s;
-  });
+  // เริ่มต้นด้วย null เสมอ — บังคับ login ทุกครั้งที่โหลดหน้า
+  const [session, setSession]   = useState(null);
   const [view,    setView]      = useState('dashboard');
   const [openHn,  setOpenHn]    = useState(null);
   const [patients, setPatients] = useState(() => { EOS.seedDemoData(); return EOS.getStore(EOS.STORE.patients, []); });
