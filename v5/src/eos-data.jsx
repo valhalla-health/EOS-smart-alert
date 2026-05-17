@@ -119,10 +119,12 @@ const EOS = window.EOS = (() => {
         method:'POST', headers:{'Content-Type':'text/plain'},
         body:JSON.stringify({action:'login', token}),
       }, 10000);
-      if (!r.ok) return null;
+      if (!r.ok) return { status:'network_error', code:r.status };
       const data = await r.json();
-      return data.status === 'ok' ? data : null;
-    } catch { return null; }
+      return data; // ส่งคืน object เต็ม: {status:'ok'|'unauthorized', email, name, role}
+    } catch (e) {
+      return { status:'error', message: e?.message||'unknown' };
+    }
   };
 
   // ── UTILS ────────────────────────────────────────────────
