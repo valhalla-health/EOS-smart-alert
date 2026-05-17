@@ -9,7 +9,7 @@ const EOS = window.EOS = (() => {
   const OFFSETS    = {'1-2 hr':1.5,'3-4 hr':3.5,'10 hr':10,'18 hr':18,'22 hr':22,'36 hr':36,'44 hr':44};
   const ABX_TPS    = new Set(['36 hr','44 hr']);
   const SESSION_HR = 8;
-  const DEFAULT_WEBHOOK = 'https://script.google.com/macros/s/AKfycbytT15UN3J9Orp1gG-2f2IIJNgQxFmXzBTt9kAVwLCjfyzxv7h813jnC71boKVpr7yL/exec';
+  const DEFAULT_WEBHOOK = 'https://script.google.com/macros/s/AKfycbyeF4SJ_EK5JBZDkUknY1uGzXGJIzLGCUrzVhXrkbXREwgxmbXb9qzkOVzpB0-Ro4sH/exec';
 
   const RANGES = {
     T:    {lo:36.5,hi:37.4,hardLo:36.0,hardHi:38.0,unit:'°C'},
