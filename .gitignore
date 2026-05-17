@@ -1,3 +1,6 @@
+# Archive — old versions, not needed on GitHub
+archive/
+
 # Python
 v5/__pycache__/
 v5/*.pyc
