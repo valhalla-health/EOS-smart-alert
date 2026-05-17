@@ -1,0 +1,2204 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EOS Smart Alert · KCMH NICU</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<style>
+/* EOS Smart Alert — V2 Design System (React Edition)
+   Base: EOS Smart Alert v2.html (V4 folder)
+   Additions: login screen, modals, permission-lock, ABX card, user mgmt
+   ─────────────────────────────────────────────────── */
+
+/* ── TOKENS ─────────────────────────────────────── */
+:root {
+  --bg:        #f4f4ef;
+  --surface:   #ffffff;
+  --surface-2: #faf9f5;
+  --surface-3: #f0efe8;
+  --border:    #e3e2da;
+  --border-2:  #cbc9bd;
+
+  --text:   #15201d;
+  --text-2: #3a4945;
+  --text-3: #7a857f;
+  --text-4: #a8b0a9;
+
+  --sidebar:   #0e1816;
+  --sidebar-2: #1f302c;
+  --sidebar-hi:#1e302b;
+
+  --teal:      #0e7a72;
+  --teal-2:    #0a5d56;
+  --teal-tint: #e6f3f1;
+  --teal-deep: #053b37;
+
+  --red:       #c8102e;
+  --red-2:     #9c0c24;
+  --red-tint:  #fbe6ea;
+
+  --amber:     #b8590a;
+  --amber-2:   #8a4307;
+  --amber-tint:#fbeacd;
+
+  --green:     #2c7a3e;
+  --green-tint:#dff0e0;
+
+  --navy:      #1e3a8a;
+  --navy-tint: #dbe5fa;
+
+  --r-sm: 6px;
+  --r:    10px;
+  --r-lg: 14px;
+  --r-xl: 18px;
+
+  --shadow-sm: 0 1px 2px rgba(14,24,22,.04),0 1px 1px rgba(14,24,22,.03);
+  --shadow:    0 2px 8px rgba(14,24,22,.06),0 1px 2px rgba(14,24,22,.04);
+  --shadow-lg: 0 14px 40px rgba(14,24,22,.14),0 4px 12px rgba(14,24,22,.08);
+
+  --sidebar-w: 232px;
+}
+
+/* ── RESET ───────────────────────────────────────── */
+*,*::before,*::after { box-sizing:border-box; margin:0; padding:0; }
+html,body { height:100%; }
+body {
+  font-family:'IBM Plex Sans Thai',system-ui,-apple-system,sans-serif;
+  background:var(--bg); color:var(--text);
+  font-size:14px; line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility;
+}
+.mono { font-family:'IBM Plex Mono',ui-monospace,monospace; font-feature-settings:"tnum" 1; }
+button { font-family:inherit; cursor:pointer; border:none; background:none; color:inherit; }
+input,select,textarea { font-family:inherit; font-size:inherit; color:inherit; }
+input:focus,select:focus,textarea:focus { outline:2px solid var(--teal); outline-offset:1px; }
+::-webkit-scrollbar { width:10px; height:10px; }
+::-webkit-scrollbar-track { background:transparent; }
+::-webkit-scrollbar-thumb { background:rgba(0,0,0,.12); border-radius:8px; border:2px solid var(--bg); }
+::-webkit-scrollbar-thumb:hover { background:rgba(0,0,0,.22); }
+
+/* ── APP SHELL ───────────────────────────────────── */
+.app-shell {
+  display:flex; min-height:100vh; max-height:100vh; overflow:hidden;
+}
+
+/* ── SIDEBAR ─────────────────────────────────────── */
+.sidebar {
+  width:var(--sidebar-w); flex-shrink:0;
+  background:var(--sidebar); color:rgba(255,255,255,.82);
+  display:flex; flex-direction:column;
+  border-right:1px solid rgba(255,255,255,.04);
+}
+.sidebar-brand {
+  padding:20px 18px 18px;
+  border-bottom:1px solid rgba(255,255,255,.06);
+}
+.brand-row { display:flex; align-items:center; gap:11px; }
+.brand-mark {
+  width:38px; height:38px; border-radius:10px;
+  background:linear-gradient(135deg,var(--teal),var(--teal-2));
+  display:grid; place-items:center; flex-shrink:0; position:relative;
+}
+.brand-mark::after { content:''; position:absolute; inset:0; border-radius:10px; box-shadow:inset 0 1px 0 rgba(255,255,255,.15); }
+.brand-name { font-size:14px; font-weight:700; color:#fff; letter-spacing:-.2px; line-height:1.15; }
+.brand-sub  { font-size:10px; color:rgba(255,255,255,.5); margin-top:2px; letter-spacing:.2px; }
+.ward-chip {
+  margin-top:14px; background:rgba(255,255,255,.05);
+  border:1px solid rgba(255,255,255,.08); border-radius:8px;
+  padding:8px 10px; display:flex; align-items:center; gap:8px;
+}
+.ward-dot { width:7px; height:7px; border-radius:50%; background:#4ade80; box-shadow:0 0 0 3px rgba(74,222,128,.18); flex-shrink:0; }
+.ward-chip .label { font-size:10px; color:rgba(255,255,255,.5); text-transform:uppercase; letter-spacing:1px; }
+.ward-chip .val   { font-size:12px; color:#fff; font-weight:600; margin-top:1px; }
+
+.sidebar-nav { flex:1; overflow-y:auto; padding:12px 8px; scrollbar-width:thin; scrollbar-color:rgba(255,255,255,.1) transparent; }
+.sidebar-nav::-webkit-scrollbar { width:4px; }
+.sidebar-nav::-webkit-scrollbar-thumb { background:rgba(255,255,255,.1); border-radius:2px; border:none; }
+
+.nav-section { font-size:9px; font-weight:700; letter-spacing:1.5px; text-transform:uppercase; color:rgba(255,255,255,.32); padding:14px 12px 6px; }
+.nav-item {
+  display:flex; align-items:center; gap:11px;
+  padding:8px 10px; width:100%; border-radius:7px;
+  font-size:13px; font-weight:500; color:rgba(255,255,255,.7);
+  transition:background .12s,color .12s; text-align:left; position:relative;
+}
+.nav-item svg { width:17px; height:17px; flex-shrink:0; opacity:.8; }
+.nav-item:hover { background:rgba(255,255,255,.05); color:#fff; }
+.nav-item.active { background:var(--sidebar-hi); color:#fff; }
+.nav-item.active svg { opacity:1; }
+.nav-item.active::before {
+  content:''; position:absolute; left:-8px; top:7px; bottom:7px;
+  width:3px; border-radius:3px; background:var(--teal);
+}
+.nav-count {
+  margin-left:auto; background:rgba(255,255,255,.08); color:rgba(255,255,255,.7);
+  font-size:10px; font-weight:700; padding:1px 7px; border-radius:10px; min-width:20px; text-align:center;
+}
+.nav-count.alert { background:var(--red); color:#fff; box-shadow:0 0 0 3px rgba(200,16,46,.18); }
+.nav-count.warn  { background:var(--amber); color:#fff; }
+
+.sidebar-foot {
+  border-top:1px solid rgba(255,255,255,.06);
+  padding:14px 16px; display:flex; align-items:center; gap:10px;
+}
+.avatar {
+  width:34px; height:34px; border-radius:50%;
+  display:grid; place-items:center;
+  font-size:13px; font-weight:700; flex-shrink:0;
+  background:linear-gradient(135deg,#4a635e,#2a3a37); color:#fff;
+}
+.sidebar-foot .name { font-size:12px; font-weight:600; color:#fff; }
+.sidebar-foot .role { font-size:10px; color:rgba(255,255,255,.45); margin-top:1px; }
+.sidebar-foot .info { flex:1; min-width:0; }
+.sidebar-foot .info > div { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+/* ── MAIN CONTENT ────────────────────────────────── */
+.main { flex:1; display:flex; flex-direction:column; overflow:hidden; }
+
+.topbar {
+  height:56px; flex-shrink:0;
+  background:var(--surface); border-bottom:1px solid var(--border);
+  display:flex; align-items:center; padding:0 24px; gap:14px;
+}
+.topbar-title { font-size:15px; font-weight:600; color:var(--text); }
+.topbar-title .breadcrumb { color:var(--text-3); font-weight:400; margin-right:6px; }
+.topbar-right { margin-left:auto; display:flex; align-items:center; gap:12px; }
+.live-clock { font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--text-3); display:flex; align-items:center; gap:8px; }
+.live-clock .dot { width:6px; height:6px; border-radius:50%; background:#2c7a3e; animation:blink 2s infinite; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.35} }
+
+.icon-btn { width:36px; height:36px; border-radius:8px; display:grid; place-items:center; color:var(--text-2); position:relative; transition:background .12s; }
+.icon-btn:hover { background:var(--surface-3); }
+.icon-btn svg { width:18px; height:18px; }
+.icon-btn .badge-dot { position:absolute; top:7px; right:8px; width:8px; height:8px; border-radius:50%; background:var(--red); border:2px solid var(--surface); }
+
+.content       { flex:1; overflow-y:auto; padding:24px 28px 60px; }
+.content-inner { max-width:1480px; margin:0 auto; }
+
+/* ── ALERT TICKER ────────────────────────────────── */
+.alert-ticker {
+  background:linear-gradient(90deg,var(--red),var(--red-2));
+  color:#fff; padding:8px 24px; font-size:13px;
+  display:flex; align-items:center; gap:14px;
+  border-bottom:1px solid rgba(0,0,0,.1); overflow:hidden;
+}
+.alert-ticker svg { width:16px; height:16px; flex-shrink:0; }
+.alert-ticker .label { font-weight:700; font-size:11px; text-transform:uppercase; letter-spacing:1px; background:rgba(0,0,0,.18); padding:3px 8px; border-radius:4px; }
+.alert-ticker .messages { flex:1; white-space:nowrap; overflow:hidden; }
+.alert-ticker .messages span { display:inline-block; padding-right:60px; font-weight:500; animation:scroll-ticker 30s linear infinite; }
+@keyframes scroll-ticker { from{transform:translateX(0)} to{transform:translateX(-50%)} }
+
+/* ── PAGE STRUCTURE ──────────────────────────────── */
+.panel { animation:fadeIn .22s ease-out; }
+@keyframes fadeIn { from{opacity:0;transform:translateY(4px)} to{opacity:1;transform:none} }
+
+.page-head { display:flex; align-items:flex-end; gap:16px; margin-bottom:20px; flex-wrap:wrap; }
+.page-head h1 { font-size:22px; font-weight:700; letter-spacing:-.3px; color:var(--text); }
+.page-head .sub { font-size:13px; color:var(--text-3); margin-top:2px; }
+.page-head .right { margin-left:auto; display:flex; gap:8px; align-items:center; }
+
+/* ── CARDS ───────────────────────────────────────── */
+.card { background:var(--surface); border:1px solid var(--border); border-radius:var(--r-lg); padding:18px; box-shadow:var(--shadow-sm); }
+.card.muted { background:var(--surface-2); }
+.card-head { display:flex; align-items:center; gap:8px; padding-bottom:12px; margin-bottom:14px; border-bottom:1px solid var(--border); }
+.card-title { font-size:13px; font-weight:700; color:var(--text); letter-spacing:-.1px; }
+.card-sub   { font-size:11px; color:var(--text-3); }
+.card-head .right { margin-left:auto; }
+
+/* ── STATS ───────────────────────────────────────── */
+.stat-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:22px; }
+.stat { background:var(--surface); border:1px solid var(--border); border-radius:var(--r-lg); padding:16px 18px; position:relative; overflow:hidden; }
+.stat .lbl  { font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.8px; color:var(--text-3); }
+.stat .val  { font-family:'IBM Plex Mono',monospace; font-size:30px; font-weight:700; color:var(--text); margin-top:6px; line-height:1; letter-spacing:-.5px; }
+.stat .val .suf { font-size:14px; color:var(--text-3); margin-left:4px; font-weight:500; }
+.stat .trend { font-size:11px; color:var(--text-3); margin-top:6px; }
+.stat .trend .up   { color:var(--red);   font-weight:600; }
+.stat .trend .down { color:var(--green); font-weight:600; }
+.stat .accent { position:absolute; inset:0 auto 0 0; width:4px; }
+.stat.red   .accent { background:var(--red);   } .stat.red   .val { color:var(--red);   }
+.stat.amber .accent { background:var(--amber); } .stat.amber .val { color:var(--amber); }
+.stat.green .accent { background:var(--green); } .stat.green .val { color:var(--green); }
+.stat.teal  .accent { background:var(--teal);  } .stat.teal  .val { color:var(--teal);  }
+
+/* ── BADGES ──────────────────────────────────────── */
+.badge { display:inline-flex; align-items:center; gap:5px; padding:2px 8px; border-radius:12px; font-size:11px; font-weight:600; white-space:nowrap; }
+.badge svg { width:11px; height:11px; }
+.badge-red    { background:var(--red-tint);   color:var(--red-2);   }
+.badge-amber  { background:var(--amber-tint); color:var(--amber-2); }
+.badge-green  { background:var(--green-tint); color:var(--green);   }
+.badge-teal   { background:var(--teal-tint);  color:var(--teal-2);  }
+.badge-navy   { background:var(--navy-tint);  color:var(--navy);    }
+.badge-grey   { background:var(--surface-3);  color:var(--text-2);  }
+
+.dot-status { width:8px; height:8px; border-radius:50%; display:inline-block; flex-shrink:0; }
+.dot-status.red   { background:var(--red);   box-shadow:0 0 0 3px var(--red-tint);   }
+.dot-status.amber { background:var(--amber); box-shadow:0 0 0 3px var(--amber-tint); }
+.dot-status.green { background:var(--green); box-shadow:0 0 0 3px var(--green-tint); }
+.dot-status.teal  { background:var(--teal);  box-shadow:0 0 0 3px var(--teal-tint);  }
+.dot-status.pulse-red { animation:pulseRed 1.4s infinite; }
+@keyframes pulseRed { 0%{box-shadow:0 0 0 0 rgba(200,16,46,.5)} 70%{box-shadow:0 0 0 10px rgba(200,16,46,0)} 100%{box-shadow:0 0 0 0 rgba(200,16,46,0)} }
+
+/* ── BUTTONS ─────────────────────────────────────── */
+.btn { display:inline-flex; align-items:center; gap:6px; padding:8px 14px; border-radius:8px; font-size:13px; font-weight:600; transition:all .12s; border:1px solid transparent; white-space:nowrap; }
+.btn svg { width:15px; height:15px; }
+.btn:disabled { opacity:.5; cursor:not-allowed; }
+.btn-primary { background:var(--teal);   color:#fff; } .btn-primary:hover { background:var(--teal-2); }
+.btn-danger  { background:var(--red);    color:#fff; } .btn-danger:hover  { background:var(--red-2);  }
+.btn-ghost   { background:var(--surface); border-color:var(--border); color:var(--text-2); }
+.btn-ghost:hover { background:var(--surface-3); border-color:var(--border-2); color:var(--text); }
+.btn-sm { padding:6px 10px; font-size:12px; }
+.btn-xs { padding:3px 8px;  font-size:11px; border-radius:6px; }
+
+/* ── WARD BOARD ──────────────────────────────────── */
+.board { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; }
+.board-col { background:var(--surface-2); border:1px solid var(--border); border-radius:var(--r-lg); padding:12px; display:flex; flex-direction:column; min-height:440px; }
+.board-col.overdue { border-top:3px solid var(--red);   }
+.board-col.soon    { border-top:3px solid var(--amber); }
+.board-col.ok      { border-top:3px solid var(--teal);  }
+.board-col.done    { border-top:3px solid var(--green); }
+.board-col-head { display:flex; align-items:center; gap:8px; padding:4px 4px 12px; margin-bottom:4px; }
+.board-col-head .title { font-size:11px; font-weight:700; letter-spacing:.3px; color:var(--text); text-transform:uppercase; }
+.board-col-head .count { margin-left:auto; font-family:'IBM Plex Mono',monospace; font-size:11px; font-weight:700; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:1px 7px; color:var(--text-2); }
+
+.patient-card { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:11px 12px; margin-bottom:8px; cursor:pointer; transition:all .12s; }
+.patient-card:hover { border-color:var(--border-2); box-shadow:var(--shadow); transform:translateY(-1px); }
+.patient-card .top-row { display:flex; align-items:center; gap:8px; margin-bottom:6px; }
+.patient-card .name { font-size:13px; font-weight:700; color:var(--text); letter-spacing:-.2px; }
+.patient-card .hn   { font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--text-3); margin-left:auto; }
+.patient-card .meta { display:flex; gap:10px; font-size:11px; color:var(--text-3); margin-bottom:8px; }
+.patient-card .meta .mono { color:var(--text-2); }
+.patient-card .progress-row { display:flex; gap:3px; margin-bottom:8px; }
+.tp-pip { flex:1; height:4px; border-radius:2px; background:var(--surface-3); }
+.tp-pip.done  { background:var(--green); }
+.tp-pip.alert { background:var(--red); }
+.tp-pip.next  { background:var(--amber); }
+.patient-card .foot { display:flex; align-items:center; justify-content:space-between; gap:8px; padding-top:8px; border-top:1px dashed var(--border); font-size:11px; }
+.patient-card .foot .due { color:var(--text-3); font-family:'IBM Plex Mono',monospace; }
+.patient-card .foot .due strong { color:var(--text); }
+
+/* ── TABLES ──────────────────────────────────────── */
+table.eos { width:100%; border-collapse:collapse; font-size:12.5px; }
+table.eos th,table.eos td { padding:9px 10px; text-align:left; border-bottom:1px solid var(--border); vertical-align:middle; }
+table.eos th { font-size:10px; font-weight:700; text-transform:uppercase; color:var(--text-3); letter-spacing:.6px; background:var(--surface-2); }
+table.eos tbody tr:hover { background:var(--surface-2); }
+table.eos td.mono { font-family:'IBM Plex Mono',monospace; font-feature-settings:"tnum" 1; }
+
+/* ── FORMS ───────────────────────────────────────── */
+.field { display:flex; flex-direction:column; gap:6px; }
+.field label, label.lbl { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.6px; color:var(--text-2); }
+.field input,.field select,.field textarea,input.input,select.input {
+  padding:9px 12px; border:1px solid var(--border-2); border-radius:8px;
+  font-size:13px; background:var(--surface); transition:border-color .12s; width:100%;
+}
+.field input:focus,.field select:focus,input.input:focus,select.input:focus { border-color:var(--teal); }
+textarea { min-height:70px; resize:vertical; }
+.help { font-size:11px; color:var(--text-3); }
+
+/* Segmented control */
+.seg { display:inline-flex; background:var(--surface-3); border-radius:8px; padding:3px; gap:2px; }
+.seg button { padding:6px 12px; border-radius:6px; font-size:12px; font-weight:600; color:var(--text-2); }
+.seg button.active { background:var(--surface); color:var(--text); box-shadow:var(--shadow-sm); }
+
+/* Chip group */
+.chip-group { display:flex; flex-wrap:wrap; gap:6px; }
+.chip { padding:7px 12px; border:1.5px solid var(--border-2); border-radius:8px; background:var(--surface); font-size:13px; font-weight:500; color:var(--text-2); transition:all .12s; cursor:pointer; }
+.chip:hover { border-color:var(--teal); }
+.chip.active       { border-color:var(--teal);  background:var(--teal-tint);  color:var(--teal-2);  font-weight:600; }
+.chip.danger.active{ border-color:var(--red);   background:var(--red-tint);   color:var(--red-2);   font-weight:600; }
+.chip.warn.active  { border-color:var(--amber); background:var(--amber-tint); color:var(--amber-2); font-weight:600; }
+
+/* Vital input with unit suffix */
+.vital-input { display:flex; align-items:center; border:1px solid var(--border-2); border-radius:8px; background:var(--surface); overflow:hidden; }
+.vital-input.flag { border-color:var(--red); background:var(--red-tint); }
+.vital-input input { flex:1; border:none; padding:9px 10px; font-family:'IBM Plex Mono',monospace; font-size:15px; font-weight:600; background:transparent; outline:none; }
+.vital-input .unit { padding:0 10px; font-size:11px; color:var(--text-3); font-family:'IBM Plex Mono',monospace; border-left:1px solid var(--border); height:100%; display:flex; align-items:center; white-space:nowrap; }
+.vital-range { font-size:10px; color:var(--text-3); margin-top:3px; font-family:'IBM Plex Mono',monospace; }
+.vital-range.flag { color:var(--red); font-weight:600; }
+
+/* Alert banners */
+.banner { display:flex; gap:12px; align-items:flex-start; padding:12px 14px; border-radius:10px; border:1px solid; font-size:13px; }
+.banner svg { width:18px; height:18px; flex-shrink:0; margin-top:1px; }
+.banner .title { font-weight:700; margin-bottom:2px; }
+.banner.red   { background:var(--red-tint);   border-color:#f4c2cc; color:var(--red-2);   }
+.banner.amber { background:var(--amber-tint); border-color:#ecd2a0; color:var(--amber-2); }
+.banner.green { background:var(--green-tint); border-color:#b9d7be; color:var(--green);   }
+.banner.teal  { background:var(--teal-tint);  border-color:#c3dfdc; color:var(--teal-2);  }
+
+/* Grid helpers */
+.row-2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.row-3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; }
+.row-4 { display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:10px; }
+
+/* Misc utilities */
+.divider { height:1px; background:var(--border); margin:14px 0; }
+.flex { display:flex; } .flex-1 { flex:1; } .flex-col { flex-direction:column; }
+.items-center { align-items:center; } .justify-between { justify-content:space-between; }
+.gap-6{gap:6px} .gap-8{gap:8px} .gap-10{gap:10px} .gap-12{gap:12px} .gap-14{gap:14px} .gap-16{gap:16px}
+.mt-8{margin-top:8px} .mt-12{margin-top:12px} .mt-14{margin-top:14px} .mt-16{margin-top:16px}
+.mb-8{margin-bottom:8px} .mb-12{margin-bottom:12px} .mb-16{margin-bottom:16px}
+.muted{color:var(--text-3)} .center{text-align:center}
+
+/* ── TRIAGE ──────────────────────────────────────── */
+.triage-wrap { display:grid; grid-template-columns:1fr 360px; gap:18px; align-items:start; }
+.triage-step { background:var(--surface); border:1px solid var(--border); border-radius:var(--r-lg); padding:22px; margin-bottom:14px; transition:all .18s; }
+.triage-step.locked { opacity:.35; pointer-events:none; }
+.triage-step.current { box-shadow:0 0 0 2px var(--teal-tint); border-color:var(--teal); }
+.triage-step .step-no { display:inline-flex; width:26px; height:26px; border-radius:50%; background:var(--teal); color:#fff; font-size:13px; font-weight:700; font-family:'IBM Plex Mono',monospace; align-items:center; justify-content:center; margin-right:10px; }
+.triage-step.done .step-no { background:var(--green); }
+.triage-step .q    { font-size:16px; font-weight:700; color:var(--text); line-height:1.35; }
+.triage-step .q-en { font-size:12px; color:var(--text-3); margin:4px 0 0 36px; }
+.triage-step .step-body { margin-top:16px; margin-left:36px; }
+.yn-row { display:flex; gap:10px; margin-top:8px; }
+.yn-row .chip { flex:1; text-align:center; padding:14px; font-size:14px; font-weight:600; }
+
+.outcome { background:var(--surface); border:1px solid var(--border); border-radius:var(--r-lg); padding:18px; position:sticky; top:0; }
+.outcome h4 { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.6px; color:var(--text-3); margin-bottom:10px; }
+.verdict { padding:14px; border-radius:10px; border:1.5px dashed var(--border-2); text-align:center; font-size:14px; color:var(--text-3); }
+.verdict.active { border-style:solid; }
+.verdict.red   { background:var(--red-tint);   border-color:var(--red);   color:var(--red-2);   }
+.verdict.amber { background:var(--amber-tint); border-color:var(--amber); color:var(--amber-2); }
+.verdict.green { background:var(--green-tint); border-color:var(--green); color:var(--green);   }
+.verdict .lg { font-size:18px; font-weight:700; display:block; margin-bottom:6px; line-height:1.2; }
+.verdict .actions { text-align:left; margin-top:12px; padding-top:12px; border-top:1px solid currentColor; font-size:12.5px; opacity:.9; }
+.verdict .actions ul { padding-left:18px; }
+.verdict .actions li { margin:3px 0; }
+
+/* ── PATIENT DETAIL ──────────────────────────────── */
+.detail-grid { display:grid; grid-template-columns:320px 1fr; gap:16px; align-items:start; }
+.profile-card .name { font-size:22px; font-weight:700; letter-spacing:-.4px; color:var(--text); }
+.profile-card .hn-line { font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--text-3); margin-top:2px; }
+.kv { display:grid; grid-template-columns:96px 1fr; gap:8px 10px; font-size:12.5px; margin-top:14px; }
+.kv .k { color:var(--text-3); } .kv .v { color:var(--text); font-weight:500; } .kv .v.mono { font-family:'IBM Plex Mono',monospace; font-weight:600; }
+
+/* Timeline */
+.timeline { display:grid; grid-template-columns:80px 1fr; gap:8px; }
+.timeline-row { display:contents; }
+.timeline-row .age { font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--text-3); text-align:right; padding:12px 8px 12px 0; border-right:1px solid var(--border); position:relative; }
+.timeline-row .age::after { content:''; position:absolute; right:-5px; top:14px; width:9px; height:9px; border-radius:50%; background:var(--surface); border:2px solid var(--border-2); }
+.timeline-row.done  .age::after { background:var(--green); border-color:var(--green); }
+.timeline-row.alert .age::after { background:var(--red);   border-color:var(--red);   box-shadow:0 0 0 4px var(--red-tint); }
+.timeline-row.due   .age::after { background:var(--amber); border-color:var(--amber); }
+.timeline-row .body { padding:10px 0 14px 16px; }
+.timeline-row .ts      { font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--text-3); margin-bottom:4px; }
+.timeline-row .summary { font-size:13px; color:var(--text); font-weight:500; }
+.timeline-row .vitals-row { display:flex; gap:14px; margin-top:6px; font-size:12px; color:var(--text-2); flex-wrap:wrap; }
+.timeline-row .vitals-row .v { display:flex; gap:4px; align-items:baseline; }
+.timeline-row .vitals-row .v .k { color:var(--text-3); font-size:11px; }
+.timeline-row .vitals-row .v .n { font-family:'IBM Plex Mono',monospace; font-weight:600; }
+.timeline-row .vitals-row .v.flag .n { color:var(--red); }
+.timeline-row .issues { margin-top:8px; display:flex; flex-wrap:wrap; gap:5px; }
+
+/* Sparklines */
+.spark-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+.spark-tile { background:var(--surface-2); border:1px solid var(--border); border-radius:10px; padding:10px 12px; }
+.spark-tile .lbl { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.6px; color:var(--text-3); }
+.spark-tile .v { font-family:'IBM Plex Mono',monospace; font-size:20px; font-weight:700; color:var(--text); margin:2px 0; }
+.spark-tile .v.flag { color:var(--red); }
+.spark-tile svg { display:block; width:100%; height:28px; }
+
+/* ── PE FORM SECTION ─────────────────────────────── */
+.pe-section { background:var(--surface); border:1px solid var(--border); border-radius:var(--r-lg); padding:18px; }
+.pe-section h3 { font-size:13px; font-weight:700; margin-bottom:12px; display:flex; align-items:center; gap:8px; }
+.pe-section h3 .num { display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:6px; background:var(--teal-tint); color:var(--teal-2); font-family:'IBM Plex Mono',monospace; font-size:11px; font-weight:700; }
+h3 .num { display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:6px; background:var(--teal-tint); color:var(--teal-2); font-family:'IBM Plex Mono',monospace; font-size:11px; font-weight:700; }
+
+/* ── CALCULATOR ──────────────────────────────────── */
+.calc-grid { display:grid; grid-template-columns:1fr 360px; gap:18px; }
+.gauge-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--r-lg); padding:24px 22px; text-align:center; }
+.gauge-card .gauge { position:relative; width:200px; height:110px; margin:0 auto 8px; }
+.gauge-num { font-family:'IBM Plex Mono',monospace; font-size:36px; font-weight:700; letter-spacing:-1px; color:var(--text); line-height:1; }
+.gauge-card .unit-line { font-size:11px; color:var(--text-3); margin-top:4px; }
+.gauge-card .verdict-pill { display:inline-flex; align-items:center; gap:6px; margin-top:14px; padding:5px 12px; border-radius:20px; font-size:12px; font-weight:700; }
+
+/* ── ALERTS LIST ─────────────────────────────────── */
+.alert-row { display:flex; gap:12px; padding:12px; border-bottom:1px solid var(--border); align-items:flex-start; }
+.alert-row:last-child { border-bottom:none; }
+.alert-row .ico { width:32px; height:32px; border-radius:8px; display:grid; place-items:center; flex-shrink:0; }
+.alert-row.red   .ico { background:var(--red-tint);   color:var(--red);   }
+.alert-row.amber .ico { background:var(--amber-tint); color:var(--amber); }
+.alert-row.teal  .ico { background:var(--teal-tint);  color:var(--teal);  }
+.alert-row .body  { flex:1; min-width:0; }
+.alert-row .title { font-size:13px; font-weight:600; color:var(--text); }
+.alert-row .desc  { font-size:12px; color:var(--text-2); margin-top:2px; }
+.alert-row .when  { font-size:11px; color:var(--text-3); font-family:'IBM Plex Mono',monospace; flex-shrink:0; }
+
+/* ── MODAL ───────────────────────────────────────── */
+.modal-backdrop { position:fixed; inset:0; background:rgba(14,24,22,.5); backdrop-filter:blur(4px); z-index:100; display:grid; place-items:center; padding:20px; animation:fadeIn .15s; }
+.modal { background:var(--surface); border-radius:var(--r-xl); padding:24px; width:100%; max-width:480px; box-shadow:var(--shadow-lg); max-height:90vh; overflow-y:auto; }
+.modal h3   { font-size:16px; font-weight:700; margin-bottom:6px; }
+.modal .sub { font-size:13px; color:var(--text-3); margin-bottom:16px; }
+.modal-foot { display:flex; gap:8px; justify-content:flex-end; margin-top:18px; padding-top:14px; border-top:1px solid var(--border); }
+
+/* ── RESPONSIVE ──────────────────────────────────── */
+@media (max-width:1100px) {
+  .stat-grid { grid-template-columns:repeat(2,1fr); }
+  .board { grid-template-columns:repeat(2,1fr); }
+  .detail-grid,.triage-wrap,.calc-grid { grid-template-columns:1fr; }
+  .row-4 { grid-template-columns:1fr 1fr; }
+}
+@media (max-width:720px) {
+  .sidebar { display:none; }
+  .stat-grid,.board { grid-template-columns:1fr 1fr; }
+  .content { padding:16px; }
+  .row-2,.row-3 { grid-template-columns:1fr; }
+}
+
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js"
+  integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L"
+  crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js"
+  integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm"
+  crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js"
+  integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y"
+  crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js"
+  integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y"
+  crossorigin="anonymous"></script>
+
+<!-- Load order matters: data → icons → auth → panels → app -->
+
+
+
+
+
+<script type="text/babel">
+// ──── src/eos-data.jsx ────
+// EOS Smart Alert — Data layer
+// SRP: localStorage, GAS sync, EOS utilities. No React/JSX here.
+// Exposes: window.EOS + convenience aliases for panels
+
+const EOS = window.EOS = (() => {
+
+  // ── CONSTANTS ──────────────────────────────────────────
+  const TIMEPOINTS = ['1-2 hr','3-4 hr','10 hr','18 hr','22 hr','36 hr','44 hr'];
+  const OFFSETS    = {'1-2 hr':1.5,'3-4 hr':3.5,'10 hr':10,'18 hr':18,'22 hr':22,'36 hr':36,'44 hr':44};
+  const ABX_TPS    = new Set(['36 hr','44 hr']);
+  const SESSION_HR = 8;
+  const DEFAULT_WEBHOOK = 'https://script.google.com/macros/s/AKfycbytT15UN3J9Orp1gG-2f2IIJNgQxFmXzBTt9kAVwLCjfyzxv7h813jnC71boKVpr7yL/exec';
+
+  const RANGES = {
+    T:    {lo:36.5,hi:37.4,hardLo:36.0,hardHi:38.0,unit:'°C'},
+    P:    {lo:110, hi:160, hardLo:100, hardHi:180, unit:'bpm'},
+    R:    {lo:40,  hi:60,  hardLo:30,  hardHi:70,  unit:'/min'},
+    SpO2: {lo:95,  hi:100, hardLo:92,  hardHi:100, unit:'%'},
+  };
+  const SKIN_OPTS = ['Rosy','Pale','Marbled','Cyanotic'];
+  const RD_OPTS   = ['tachypnea','nasal flaring','retractions','grunting'];
+
+  // ── AUTH / ROLE ─────────────────────────────────────────
+  const AUTH = {
+    GOOGLE_CLIENT_ID: '658466851314-1a9ub51gpilmg32abobrtqp7772s8dbu.apps.googleusercontent.com',
+    ALLOW_DEMO_MODE: false,
+  };
+
+  // เพิ่ม staff ได้ที่นี่ หรือผ่าน Admin > จัดการผู้ใช้
+  const STAFF_DB = {
+    'praew.tvl@gmail.com': {name:'พญ.พีรพร', role:'admin'},
+  };
+
+  const ROLE_CFG = {
+    doctor: {label:'แพทย์',    icon:'👨‍⚕️',bg:'#eff6ff',color:'#1e40af',canApproveAbx:true, canDischarge:true, canConfig:false,canManageUsers:false},
+    nurse:  {label:'พยาบาล',  icon:'👩‍⚕️',bg:'#f0fdf4',color:'#166534',canApproveAbx:false,canDischarge:false,canConfig:false,canManageUsers:false},
+    admin:  {label:'ผู้ดูแลระบบ',icon:'🛡️', bg:'#fdf4ff',color:'#7e22ce',canApproveAbx:true, canDischarge:true, canConfig:true, canManageUsers:true},
+  };
+
+  // ── STORE KEYS ──────────────────────────────────────────
+  const STORE = {
+    patients:'eos_patients',
+    vitals:  'eos_vitals',
+    audit:   'eos_audit',
+    users:   'eos_users',
+    cfg:     'eos_cfg',
+  };
+
+  // ── STORAGE ─────────────────────────────────────────────
+  const sj = (s, def) => { try { const v=JSON.parse(s); return v??def; } catch { return def; } };
+  const getStore = (k, def=[]) => sj(localStorage.getItem(k), def);
+  const setStore = (k, v) => localStorage.setItem(k, JSON.stringify(v));
+
+  // ── SESSION (sessionStorage, 8 hr) ──────────────────────
+  const getSession = () => {
+    const s = sj(sessionStorage.getItem('eos_sess'), null);
+    if (!s) return null;
+    if ((Date.now()-new Date(s.loginAt))/3600000 > SESSION_HR) {
+      sessionStorage.removeItem('eos_sess'); return null;
+    }
+    return s;
+  };
+  const setSession   = s => sessionStorage.setItem('eos_sess', JSON.stringify(s));
+  const clearSession = () => sessionStorage.removeItem('eos_sess');
+
+  // ── USER MANAGEMENT ─────────────────────────────────────
+  const getUsers = () => {
+    const ov = sj(localStorage.getItem(STORE.users), null);
+    return (ov && typeof ov === 'object') ? ov : STAFF_DB;
+  };
+  const saveUsers = db => setStore(STORE.users, db);
+  const findStaffByEmail = email => {
+    if (!email) return null;
+    const key = String(email).trim().toLowerCase();
+    const db  = getUsers();
+    for (const k in db) if (k.toLowerCase()===key) return {email:k, ...db[k]};
+    return null;
+  };
+
+  // ── AUDIT LOG ───────────────────────────────────────────
+  const auditLog = (action, detail='') => {
+    const s   = getSession();
+    const arr = getStore(STORE.audit);
+    arr.push({ts:new Date().toISOString(), staff:s?.name||'?', role:s?.role||'?', action, detail});
+    if (arr.length > 1000) arr.splice(0, arr.length-1000);
+    setStore(STORE.audit, arr);
+  };
+
+  // ── CONFIG & SYNC ────────────────────────────────────────
+  const getCfg = () => sj(localStorage.getItem(STORE.cfg), {});
+  const setCfg = c => setStore(STORE.cfg, {...getCfg(), ...c});
+
+  const fetchT = (url, opts={}, ms=10000) => {
+    const ctrl = new AbortController();
+    const t = setTimeout(()=>ctrl.abort(), ms);
+    return fetch(url, {...opts, signal:ctrl.signal}).finally(()=>clearTimeout(t));
+  };
+  const getToken = () => {
+    const s = sj(sessionStorage.getItem('eos_sess'), null);
+    return s?.token || null;
+  };
+
+  const syncRow = async (sheet, row) => {
+    const url   = getCfg().url || DEFAULT_WEBHOOK;
+    const token = getToken();
+    try {
+      const r = await fetchT(url, {
+        method:'POST', headers:{'Content-Type':'text/plain'},
+        body:JSON.stringify({sheet, ...row, token}),
+      }, 8000);
+      return r.ok;
+    } catch { return false; }
+  };
+
+  /** loginGAS — ตรวจสอบ Google JWT กับ GAS (server-side verify) */
+  const loginGAS = async token => {
+    const url = getCfg().url || DEFAULT_WEBHOOK;
+    try {
+      const r = await fetchT(url, {
+        method:'POST', headers:{'Content-Type':'text/plain'},
+        body:JSON.stringify({action:'login', token}),
+      }, 10000);
+      if (!r.ok) return null;
+      const data = await r.json();
+      return data.status === 'ok' ? data : null;
+    } catch { return null; }
+  };
+
+  // ── UTILS ────────────────────────────────────────────────
+  const nowISO = () => new Date().toISOString();
+  const maskHn = hn => hn ? String(hn).replace(/(\d{2}\/\d{2})\d+/,'$1****') : '?';
+  const esc    = s  => String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+
+  const fmtTime = iso => {
+    if (!iso) return '—';
+    const d = new Date(iso);
+    return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+  };
+  const fmtDateTime = iso => {
+    if (!iso) return '—';
+    const d = new Date(iso);
+    return d.toLocaleDateString('th-TH',{day:'2-digit',month:'short'})+' '+fmtTime(iso);
+  };
+  const fmtRelative = iso => {
+    if (!iso) return '—';
+    const diff = (Date.now()-new Date(iso))/3600000;
+    if (diff < 1/60) return 'เมื่อกี้';
+    if (diff < 1)    return Math.round(diff*60)+' นาทีที่แล้ว';
+    if (diff < 24)   return (Math.round(diff*10)/10)+' hr ที่แล้ว';
+    return Math.round(diff/24)+' วันที่แล้ว';
+  };
+
+  // ── VITAL EVALUATION ────────────────────────────────────
+  const evalVitals = v => {
+    const issues = [];
+    if (v.wellbeing==='no') issues.push({k:'Wellbeing',txt:'ผิดปกติ',sev:'red'});
+    if (v.skin && v.skin!=='Rosy') issues.push({k:'Skin',txt:v.skin,sev:v.skin==='Cyanotic'?'red':'amber'});
+    [['T',v.T],['P',v.P],['R',v.R],['SpO2',v.SpO2]].forEach(([k,val]) => {
+      if (val==null) return;
+      const r=RANGES[k]; if(!r) return;
+      const n=+val;
+      if (n<r.hardLo||n>r.hardHi) issues.push({k,txt:n+r.unit,sev:'red'});
+      else if (n<r.lo||n>r.hi)    issues.push({k,txt:n+r.unit,sev:'amber'});
+    });
+    if (v.rd && v.rd.length) issues.push({k:'Distress',txt:v.rd.join(', '),sev:'red'});
+    return issues;
+  };
+
+  const vitalFlag = (key, value) => {
+    if (value==null||value==='') return null;
+    const r=RANGES[key]; if(!r) return null;
+    const v=+value;
+    if (v<r.hardLo||v>r.hardHi) return 'red';
+    if (v<r.lo||v>r.hi)         return 'amber';
+    return null;
+  };
+
+  // ── EOS RISK CALCULATOR (Kaiser-Permanente) ─────────────
+  const calcEOSRisk = ({ga, romHours=0, maternalTemp=37, gbsStatus='unk', iapStatus='none'}) => {
+    let base;
+    if (ga>=41) base=0.057; else if (ga>=40) base=0.068; else if (ga>=39) base=0.083;
+    else if (ga>=38) base=0.10; else if (ga>=37) base=0.15;
+    else if (ga>=36) base=0.32; else if (ga>=35) base=0.57; else base=0.95;
+    let risk=base;
+    if (gbsStatus==='pos') risk*=7.0; else if (gbsStatus==='neg') risk*=0.25;
+    if (romHours>=18) risk*=2.0; else if (romHours>=12) risk*=1.5;
+    if (maternalTemp>=39.0) risk*=5.0; else if (maternalTemp>=38.5) risk*=3.0; else if (maternalTemp>=38.0) risk*=2.0;
+    if (iapStatus==='adequate') risk*=0.25; else if (iapStatus==='partial') risk*=0.5;
+    return Math.round(risk*1000)/1000;
+  };
+
+  const riskCategory = risk => {
+    if (risk<0.5)  return {level:'low', label:'ความเสี่ยงต่ำ',    en:'Low',       badge:'green',recommend:'Routine care',                    detail:'Continue routine newborn care. No additional workup.'};
+    if (risk<1.0)  return {level:'med', label:'ความเสี่ยงปานกลาง',en:'Moderate',  badge:'amber',recommend:'Serial PE × 48 hr',              detail:'No labs needed; clinical surveillance is sufficient if exam remains reassuring.'};
+    if (risk<3.0)  return {level:'high',label:'ความเสี่ยงสูง',    en:'High',      badge:'amber',recommend:'Blood culture + CBC · Serial PE', detail:'Obtain blood culture and CBC at 0–6 hr. Continue serial PE.'};
+    return           {level:'crit',label:'ความเสี่ยงสูงมาก',  en:'Very high', badge:'red',  recommend:'Empirical ABX + full sepsis workup',detail:'Start empirical broad-spectrum antibiotics. Full sepsis workup required.'};
+  };
+
+  // ── PATIENT HELPERS ─────────────────────────────────────
+  const ageHours  = p => Math.round((Date.now()-new Date(p.dob))/36e5*10)/10;
+  const vitalsFor = (hn, store) => (store||getStore(STORE.vitals)).filter(v=>v.hn===hn).sort((a,b)=>new Date(a.ts)-new Date(b.ts));
+  const doneTPs   = (hn, store) => new Set(vitalsFor(hn, store).map(v=>v.ageHr));
+  const nextTP    = (hn, store) => { const done=doneTPs(hn,store); return TIMEPOINTS.find(tp=>!done.has(tp))||null; };
+  const tpDueAt   = (p, tp)    => new Date(new Date(p.dob).getTime()+OFFSETS[tp]*3600000);
+
+  const tpStatus = (p, store) => {
+    if (p.archived) return {cat:'done',label:'เสร็จสิ้น 44 hr',dueIn:null};
+    const tp = nextTP(p.hn, store);
+    if (!tp) return {cat:'done',label:'เสร็จสิ้น',dueIn:null};
+    const dueAt = tpDueAt(p, tp);
+    const diffH = (dueAt-Date.now())/3600000;
+    const issues = vitalsFor(p.hn, store).flatMap(v=>evalVitals(v));
+    const hasRed = issues.some(i=>i.sev==='red');
+    if (hasRed && diffH<2) return {cat:'overdue',label:'ผิดปกติ — รอประเมิน',dueIn:0,tp,isAlert:true};
+    if (diffH<-0.5) return {cat:'overdue',label:`เลยกำหนด ${Math.abs(Math.round(diffH*10)/10)} hr`,dueIn:diffH,tp};
+    if (diffH<1.5)  return {cat:'soon',   label:`ครบในอีก ${Math.round(diffH*60)} นาที`,           dueIn:diffH,tp};
+    return               {cat:'ok',    label:`ครบในอีก ${Math.round(diffH*10)/10} hr`,            dueIn:diffH,tp};
+  };
+
+  // ── DEMO SEED ───────────────────────────────────────────
+  const seedDemoData = () => {
+    if (getStore(STORE.patients).length > 0) return;
+    const now=Date.now();
+    const ago = h => new Date(now-h*3600000).toISOString();
+    const pts = [
+      {hn:'68/12047',name:'Baby ของ คุณสุพรรณี', motherName:'คุณสุพรรณี ใจดี',  sex:'M',ga:38.4,bw:3120,bed:'NICU-3',dob:ago(38.5),intake:{maternalFever:'yes',fever:38.6,chorio:false,gbs:'pos',rom:14,iap:'partial'},  triageOutcome:'serialPE',isSerialPE:true,archived:false,staff:'system',ts:ago(38.6),synced:false},
+      {hn:'68/12053',name:'Baby ของ คุณนภาพร',   motherName:'คุณนภาพร แสงทอง', sex:'F',ga:39.1,bw:3380,bed:'NICU-1',dob:ago(22),  intake:{maternalFever:'no', fever:null,  chorio:false,gbs:'unk',rom:20,iap:'none'},   triageOutcome:'serialPE',isSerialPE:true,archived:false,staff:'system',ts:ago(22.1),synced:false},
+      {hn:'68/12058',name:'Baby ของ คุณวันเพ็ญ', motherName:'คุณวันเพ็ญ ทับทิม',sex:'M',ga:36.2,bw:2580,bed:'NICU-5',dob:ago(11.5),intake:{maternalFever:'no', fever:null,  chorio:false,gbs:'pos',rom:6, iap:'adequate'},triageOutcome:'serialPE',isSerialPE:true,archived:false,staff:'system',ts:ago(11.6),synced:false},
+    ];
+    const vts = [
+      {hn:'68/12047',ageHr:'1-2 hr', ts:ago(37),  wellbeing:'yes',skin:'Rosy',   T:37.0,P:142,R:48,SpO2:98,BP:'62/38',rd:[],staff:'พ.สมศรี',management:'',abxApproved:false,synced:false},
+      {hn:'68/12047',ageHr:'3-4 hr', ts:ago(35),  wellbeing:'yes',skin:'Rosy',   T:36.9,P:138,R:50,SpO2:97,BP:'60/36',rd:[],staff:'พ.สมศรี',management:'',abxApproved:false,synced:false},
+      {hn:'68/12047',ageHr:'10 hr',  ts:ago(28.5),wellbeing:'yes',skin:'Rosy',   T:37.1,P:148,R:54,SpO2:96,BP:'63/40',rd:[],staff:'พ.สมศรี',management:'',abxApproved:false,synced:false},
+      {hn:'68/12047',ageHr:'18 hr',  ts:ago(20.5),wellbeing:'no', skin:'Marbled',T:37.8,P:168,R:66,SpO2:94,BP:'58/34',rd:['tachypnea','retractions'],staff:'พ.มาลี',management:'NPO · IV access',abxApproved:false,synced:false},
+      {hn:'68/12053',ageHr:'1-2 hr', ts:ago(20.5),wellbeing:'yes',skin:'Rosy',   T:36.8,P:140,R:46,SpO2:97,BP:'64/40',rd:[],staff:'พ.สมศรี',management:'',abxApproved:false,synced:false},
+      {hn:'68/12053',ageHr:'3-4 hr', ts:ago(18.5),wellbeing:'yes',skin:'Rosy',   T:36.9,P:136,R:48,SpO2:98,BP:'65/40',rd:[],staff:'พ.สมศรี',management:'',abxApproved:false,synced:false},
+      {hn:'68/12053',ageHr:'10 hr',  ts:ago(12),  wellbeing:'yes',skin:'Rosy',   T:37.0,P:138,R:50,SpO2:98,BP:'64/40',rd:[],staff:'พ.มาลี',management:'',abxApproved:false,synced:false},
+      {hn:'68/12058',ageHr:'1-2 hr', ts:ago(10),  wellbeing:'yes',skin:'Rosy',   T:36.9,P:144,R:50,SpO2:97,BP:'62/38',rd:[],staff:'พ.สมศรี',management:'',abxApproved:false,synced:false},
+    ];
+    setStore(STORE.patients, pts);
+    setStore(STORE.vitals,   vts);
+  };
+
+  return {
+    TIMEPOINTS, OFFSETS, ABX_TPS, RANGES, SKIN_OPTS, RD_OPTS,
+    AUTH, STAFF_DB, ROLE_CFG, STORE, SESSION_HR, DEFAULT_WEBHOOK,
+    sj, getStore, setStore,
+    getSession, setSession, clearSession,
+    getUsers, saveUsers, findStaffByEmail,
+    auditLog, getCfg, setCfg, syncRow, loginGAS, getToken, fetchT,
+    nowISO, maskHn, esc, fmtTime, fmtDateTime, fmtRelative,
+    evalVitals, vitalFlag, calcEOSRisk, riskCategory,
+    ageHours, vitalsFor, doneTPs, nextTP, tpDueAt, tpStatus,
+    seedDemoData,
+  };
+})();
+
+// Convenience globals — used across all panel files
+const { TIMEPOINTS, OFFSETS, ABX_TPS, RANGES, SKIN_OPTS, RD_OPTS } = EOS;
+const { evalVitals, vitalFlag, calcEOSRisk, riskCategory } = EOS;
+const { ageHours, vitalsFor, doneTPs, nextTP, tpDueAt, tpStatus } = EOS;
+const { fmtTime, fmtDateTime, fmtRelative } = EOS;
+
+
+// ──── src/eos-icons.jsx ────
+// EOS Smart Alert — Icon component (SVG icon set)
+const Icon = ({ name, size = 18, ...rest }) => {
+  const d = ICON_PATHS[name];
+  if (!d) return null;
+  return React.createElement('svg', { width:size, height:size, viewBox:'0 0 24 24', fill:'none', stroke:'currentColor', strokeWidth:'2', strokeLinecap:'round', strokeLinejoin:'round', ...rest }, d);
+};
+
+const ICON_PATHS = {
+  board:      React.createElement(React.Fragment,null,React.createElement('rect',{x:'3',y:'4',width:'18',height:'16',rx:'2'}),React.createElement('path',{d:'M3 9h18M9 9v11M15 9v11'})),
+  triage:     React.createElement(React.Fragment,null,React.createElement('path',{d:'M4 4h16M6 4v6c0 2.2 1.8 4 4 4h4c2.2 0 4-1.8 4-4V4M9 14v6M15 14v6'})),
+  patients:   React.createElement(React.Fragment,null,React.createElement('circle',{cx:'9',cy:'8',r:'3.5'}),React.createElement('path',{d:'M3 21c0-3.3 2.7-6 6-6s6 2.7 6 6'}),React.createElement('circle',{cx:'17',cy:'7',r:'2.5'}),React.createElement('path',{d:'M15 14c2 0 6 1 6 5'})),
+  bell:       React.createElement(React.Fragment,null,React.createElement('path',{d:'M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9'}),React.createElement('path',{d:'M10 21a2 2 0 0 0 4 0'})),
+  calc:       React.createElement(React.Fragment,null,React.createElement('rect',{x:'4',y:'3',width:'16',height:'18',rx:'2'}),React.createElement('path',{d:'M8 7h8M8 12h.01M12 12h.01M16 12h.01M8 16h.01M12 16h.01M16 16h.01'})),
+  cog:        React.createElement(React.Fragment,null,React.createElement('circle',{cx:'12',cy:'12',r:'3'}),React.createElement('path',{d:'M19.4 15a1.7 1.7 0 0 0 .4 1.9l.1.1a2 2 0 1 1-2.9 2.9l-.1-.1a1.7 1.7 0 0 0-1.9-.4 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.9.4l-.1.1a2 2 0 1 1-2.9-2.9l.1-.1a1.7 1.7 0 0 0 .4-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.4-1.9l-.1-.1a2 2 0 1 1 2.9-2.9l.1.1a1.7 1.7 0 0 0 1.9.4H9A1.7 1.7 0 0 0 10 3.1V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.4l.1-.1a2 2 0 1 1 2.9 2.9l-.1.1a1.7 1.7 0 0 0-.4 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z'})),
+  warn:       React.createElement(React.Fragment,null,React.createElement('path',{d:'M12 3 2 21h20L12 3z'}),React.createElement('path',{d:'M12 10v5'}),React.createElement('circle',{cx:'12',cy:'18',r:'.5',fill:'currentColor'})),
+  check:      React.createElement('polyline',{points:'4 12 10 18 20 6'}),
+  clock:      React.createElement(React.Fragment,null,React.createElement('circle',{cx:'12',cy:'12',r:'9'}),React.createElement('path',{d:'M12 7v5l3 2'})),
+  plus:       React.createElement('path',{d:'M12 5v14M5 12h14'}),
+  search:     React.createElement(React.Fragment,null,React.createElement('circle',{cx:'11',cy:'11',r:'7'}),React.createElement('path',{d:'m20 20-3.5-3.5'})),
+  arrow_left: React.createElement(React.Fragment,null,React.createElement('path',{d:'M19 12H5'}),React.createElement('polyline',{points:'11 6 5 12 11 18'})),
+  logout:     React.createElement(React.Fragment,null,React.createElement('path',{d:'M15 17l5-5-5-5'}),React.createElement('path',{d:'M20 12H9'}),React.createElement('path',{d:'M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4'})),
+  syringe:    React.createElement(React.Fragment,null,React.createElement('path',{d:'M18 2 22 6M19 5 14 10M5 19l9-9 4 4-9 9H5v-4z'}),React.createElement('path',{d:'M11 13l2 2'})),
+  list:       React.createElement(React.Fragment,null,React.createElement('path',{d:'M8 6h13M8 12h13M8 18h13'}),React.createElement('circle',{cx:'3.5',cy:'6',r:'1',fill:'currentColor'}),React.createElement('circle',{cx:'3.5',cy:'12',r:'1',fill:'currentColor'}),React.createElement('circle',{cx:'3.5',cy:'18',r:'1',fill:'currentColor'})),
+  eye:        React.createElement(React.Fragment,null,React.createElement('path',{d:'M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z'}),React.createElement('circle',{cx:'12',cy:'12',r:'3'})),
+  download:   React.createElement(React.Fragment,null,React.createElement('path',{d:'M12 3v12'}),React.createElement('polyline',{points:'6 11 12 17 18 11'}),React.createElement('path',{d:'M5 21h14'})),
+  print:      React.createElement(React.Fragment,null,React.createElement('polyline',{points:'6 9 6 3 18 3 18 9'}),React.createElement('rect',{x:'4',y:'9',width:'16',height:'9',rx:'2'}),React.createElement('rect',{x:'7',y:'14',width:'10',height:'7'})),
+  filter:     React.createElement('path',{d:'M3 5h18l-7 9v6l-4-2v-4L3 5z'}),
+  x:          React.createElement('path',{d:'M6 6l12 12M18 6 6 18'}),
+  signature:  React.createElement(React.Fragment,null,React.createElement('path',{d:'M3 17c4 0 4-10 8-10s4 10 8 10'}),React.createElement('path',{d:'M3 21h18'})),
+  abx:        React.createElement(React.Fragment,null,React.createElement('circle',{cx:'12',cy:'12',r:'3'}),React.createElement('path',{d:'M12 3v3M12 18v3M3 12h3M18 12h3'})),
+  lock:       React.createElement(React.Fragment,null,React.createElement('rect',{x:'3',y:'11',width:'18',height:'11',rx:'2'}),React.createElement('path',{d:'M7 11V7a5 5 0 0 1 10 0v4'})),
+  users:      React.createElement(React.Fragment,null,React.createElement('circle',{cx:'9',cy:'8',r:'3.5'}),React.createElement('path',{d:'M3 21c0-3.3 2.7-6 6-6s6 2.7 6 6'}),React.createElement('circle',{cx:'17',cy:'7',r:'2.5'}),React.createElement('path',{d:'M15 14c2 0 6 1 6 5'})),
+  refresh:    React.createElement(React.Fragment,null,React.createElement('polyline',{points:'23 4 23 10 17 10'}),React.createElement('path',{d:'M20.5 15a9 9 0 1 1-2.2-9.2L23 10'})),
+  handoff:    React.createElement(React.Fragment,null,React.createElement('path',{d:'M5 12h14M13 5l7 7-7 7'})),
+  calendar:   React.createElement(React.Fragment,null,React.createElement('rect',{x:'3',y:'4',width:'18',height:'18',rx:'2'}),React.createElement('path',{d:'M16 2v4M8 2v4M3 10h18'})),
+};
+
+window.Icon = Icon;
+
+
+// ──── src/eos-auth.jsx ────
+// EOS Smart Alert — Login Screen component
+// SRP: Google Sign-In, email lookup, session creation. No panel logic.
+
+function LoginScreen({ onLogin }) {
+  const { useState, useEffect } = React;
+  const [step,    setStep]    = useState(1);
+  const [email,   setEmail]   = useState('');
+  const [staff,   setStaff]   = useState(null);
+  const [err,     setErr]     = useState('');
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const { GOOGLE_CLIENT_ID } = EOS.AUTH;
+    if (!GOOGLE_CLIENT_ID) return;
+    const tryInit = () => {
+      if (window.google?.accounts?.id) {
+        google.accounts.id.initialize({
+          client_id: GOOGLE_CLIENT_ID,
+          callback:  handleGoogleCredential,
+          auto_select: false,
+        });
+        const el = document.getElementById('gsi-btn-wrap');
+        if (el) google.accounts.id.renderButton(el, {type:'standard',size:'large',width:280,theme:'outline'});
+      } else { setTimeout(tryInit, 400); }
+    };
+    tryInit();
+  }, []);
+
+  const handleGoogleCredential = async resp => {
+    setLoading(true);
+    setErr('');
+    try {
+      // ── 1. ถอดรหัส JWT เพื่อดู email (client-side ยังไม่ verify) ──
+      const [, payload] = resp.credential.split('.');
+      const data = JSON.parse(atob(payload.replace(/-/g,'+').replace(/_/g,'/')));
+
+      // ── 2. ตรวจสอบกับ GAS server (server-side JWT verify) ─────────
+      const gasUser = await EOS.loginGAS(resp.credential);
+      if (!gasUser) {
+        setErr(`ไม่พบบัญชี ${data.email||''} ในระบบ หรือบัญชีถูกระงับ`);
+        setLoading(false); return;
+      }
+
+      // ── 3. เข้าสู่ระบบด้วยข้อมูลจาก GAS (trusted) ──────────────
+      doLogin({ email: gasUser.email, name: gasUser.name, role: gasUser.role }, resp.credential);
+    } catch (e) {
+      setErr('ยืนยันตัวตนไม่ได้ กรุณาลองใหม่');
+      setLoading(false);
+    }
+  };
+
+  const lookupEmail = () => {
+    setErr('');
+    const found = EOS.findStaffByEmail(email.trim());
+    if (!found) { setErr('ไม่พบอีเมลนี้ในระบบ'); return; }
+    setStaff(found); setStep(2);
+  };
+
+  const doLogin = (s, token) => {
+    // สร้าง session object ครั้งเดียว — ป้องกัน loginAt timestamp ต่างกัน 2 ตัว
+    const sess = { ...s, loginAt: EOS.nowISO(), token: token || null };
+    EOS.setSession(sess);
+    EOS.auditLog('LOGIN', `${s.name} (${s.role})`);
+    setLoading(false);
+    onLogin(sess);
+  };
+
+  const rc = staff ? EOS.ROLE_CFG[staff.role] : null;
+
+  // Shared input style
+  const inputStyle = {
+    padding:'10px 13px', border:'1.5px solid #e3e2da', borderRadius:8,
+    fontSize:14, width:'100%', outline:'none', fontFamily:'inherit',
+    background:'#fff', transition:'border-color .12s',
+  };
+  const btnPrimary = {
+    padding:'11px 20px', background:'#0e7a72', color:'#fff', border:'none',
+    borderRadius:8, fontSize:14, fontWeight:600, cursor:'pointer',
+    display:'flex', alignItems:'center', justifyContent:'center', gap:8,
+    transition:'background .12s', width:'100%',
+  };
+
+  return (
+    <div style={{
+      position:'fixed', inset:0, zIndex:9999,
+      background:'linear-gradient(135deg, #0e1816 0%, #0e7a72 50%, #0a1512 100%)',
+      display:'flex', alignItems:'center', justifyContent:'center', padding:20,
+    }}>
+      {/* dot-grid overlay */}
+      <div style={{position:'absolute',inset:0,pointerEvents:'none',backgroundImage:'radial-gradient(rgba(255,255,255,.04) 1px, transparent 1px)',backgroundSize:'28px 28px'}}/>
+
+      <div style={{
+        display:'flex', borderRadius:18, overflow:'hidden',
+        width:'min(92vw,820px)', position:'relative', zIndex:1,
+        boxShadow:'0 32px 80px rgba(0,0,0,.5), 0 0 0 1px rgba(255,255,255,.06)',
+      }}>
+        {/* ── Brand panel ── */}
+        <div style={{
+          background:'linear-gradient(160deg,#115e59,#134e4a)',
+          padding:'44px 36px', minWidth:280, color:'#fff',
+          display:'flex', flexDirection:'column', justifyContent:'center',
+          position:'relative', overflow:'hidden',
+          borderRight:'1px solid rgba(255,255,255,.08)',
+        }}>
+          <div style={{position:'absolute',top:-80,right:-80,width:260,height:260,borderRadius:'50%',background:'radial-gradient(circle,rgba(20,184,166,.18),transparent 70%)'}}/>
+          <div style={{width:60,height:60,borderRadius:16,marginBottom:28,background:'rgba(20,184,166,.2)',border:'1px solid rgba(20,184,166,.35)',display:'flex',alignItems:'center',justifyContent:'center',position:'relative',zIndex:1}}>
+            <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.9)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 3 4 6v6c0 5 3.5 8.5 8 9 4.5-.5 8-4 8-9V6l-8-3z"/>
+              <path d="M9 12h2v-2h2v2h2v2h-2v2h-2v-2H9z"/>
+            </svg>
+          </div>
+          <h1 style={{fontSize:24,fontWeight:700,margin:'0 0 10px',letterSpacing:'-.4px',position:'relative',zIndex:1}}>EOS Smart Alert</h1>
+          <p style={{fontSize:12.5,lineHeight:1.65,color:'rgba(255,255,255,.65)',margin:0,position:'relative',zIndex:1}}>
+            ระบบติดตามและแจ้งเตือน<br/>Early-Onset Sepsis<br/>ทารกแรกเกิด GA ≥ 34 สัปดาห์
+          </p>
+          <div style={{display:'flex',gap:6,marginTop:22,flexWrap:'wrap',position:'relative',zIndex:1}}>
+            {['NICU','v3.0 React','จุฬาลงกรณ์'].map(t=>(
+              <span key={t} style={{padding:'3px 10px',borderRadius:999,fontSize:10,fontWeight:600,background:'rgba(255,255,255,.1)',border:'1px solid rgba(255,255,255,.12)',color:'rgba(255,255,255,.8)'}}>{t}</span>
+            ))}
+          </div>
+        </div>
+
+        {/* ── Form panel ── */}
+        <div style={{background:'#fff',padding:'44px 36px',flex:1,display:'flex',flexDirection:'column',justifyContent:'center'}}>
+          <h2 style={{fontSize:20,fontWeight:700,marginBottom:5,letterSpacing:'-.3px',color:'#15201d'}}>เข้าสู่ระบบ</h2>
+          <p style={{fontSize:13,color:'#7a857f',marginBottom:26}}>บัญชี Google ที่ลงทะเบียนใน EOS Smart Alert</p>
+
+          {step===1 && (
+            <div style={{display:'flex',flexDirection:'column',gap:14}}>
+              {/* Google Sign-In */}
+              <div id="gsi-btn-wrap" style={{display:'flex',justifyContent:'center',minHeight:44}}/>
+
+              <div style={{display:'flex',alignItems:'center',gap:10,color:'#a8b0a9',fontSize:11}}>
+                <div style={{flex:1,height:1,background:'#e3e2da'}}/><span>หรือ</span><div style={{flex:1,height:1,background:'#e3e2da'}}/>
+              </div>
+
+              <div style={{display:'flex',flexDirection:'column',gap:5}}>
+                <label style={{fontSize:11,fontWeight:700,textTransform:'uppercase',letterSpacing:'.6px',color:'#3a4945'}}>อีเมล</label>
+                <input type="email" value={email} placeholder="name@gmail.com"
+                  onChange={e=>setEmail(e.target.value)}
+                  onKeyDown={e=>e.key==='Enter'&&lookupEmail()}
+                  style={inputStyle}
+                  onFocus={e=>e.target.style.borderColor='#0e7a72'}
+                  onBlur={e =>e.target.style.borderColor='#e3e2da'}
+                />
+              </div>
+              <button onClick={lookupEmail} style={btnPrimary}
+                onMouseOver={e=>e.currentTarget.style.background='#0a5d56'}
+                onMouseOut={e =>e.currentTarget.style.background='#0e7a72'}>
+                เข้าสู่ระบบ
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 3l5 5-5 5"/></svg>
+              </button>
+              {err && <div style={{color:'#c8102e',fontSize:12,textAlign:'center',fontWeight:500}}>{err}</div>}
+            </div>
+          )}
+
+          {step===2 && staff && rc && (
+            <div style={{display:'flex',flexDirection:'column',gap:14}}>
+              <button onClick={()=>{setStep(1);setStaff(null);setErr('');}} style={{background:'none',border:'none',color:'#7a857f',fontSize:12,cursor:'pointer',padding:'6px 0',display:'flex',alignItems:'center',gap:6,fontWeight:500}}>
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10 3L5 8l5 5"/></svg>
+                เปลี่ยนบัญชี
+              </button>
+
+              <div style={{background:'#f1fdf9',border:'1.5px solid #b9d7be',borderRadius:10,padding:'14px 16px',display:'flex',alignItems:'center',gap:14}}>
+                <div style={{width:44,height:44,borderRadius:10,background:rc.bg,display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,flexShrink:0}}>{rc.icon}</div>
+                <div>
+                  <div style={{fontWeight:700,fontSize:14,color:'#15201d'}}>{staff.name}</div>
+                  <span style={{display:'inline-block',marginTop:4,padding:'2px 9px',borderRadius:999,fontSize:11,fontWeight:600,background:rc.bg,color:rc.color}}>{rc.label}</span>
+                </div>
+              </div>
+
+              <button onClick={()=>doLogin(staff)} disabled={loading}
+                style={{...btnPrimary, opacity:loading?.7:1}}
+                onMouseOver={e=>e.currentTarget.style.background='#0a5d56'}
+                onMouseOut={e =>e.currentTarget.style.background='#0e7a72'}>
+                {loading ? 'กำลังเข้าสู่ระบบ…' : <>ยืนยันเข้าสู่ระบบ <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 3l5 5-5 5"/></svg></>}
+              </button>
+              {err && <div style={{color:'#c8102e',fontSize:12,textAlign:'center',fontWeight:500}}>{err}</div>}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+window.LoginScreen = LoginScreen;
+
+
+// ──── src/eos-panels.jsx ────
+// EOS Smart Alert — All panel components
+// SRP: panel UI only. One reason to change = panel layout / clinical logic display.
+
+const { useState, useMemo, useEffect, useRef } = React;
+
+// ══════════════════════════════════════════════════
+// SUB-COMPONENTS
+// ══════════════════════════════════════════════════
+
+function StatusDot({ patient, vitals }) {
+  const st = tpStatus(patient, vitals);
+  const all = vitalsFor(patient.hn, vitals);
+  const last = all[all.length - 1];
+  const hasRed = last && evalVitals(last).some(i => i.sev === 'red');
+  if (hasRed)               return <span className="dot-status red pulse-red"/>;
+  if (st.cat === 'overdue') return <span className="dot-status red"/>;
+  if (st.cat === 'soon')    return <span className="dot-status amber"/>;
+  if (st.cat === 'done')    return <span className="dot-status green"/>;
+  return <span className="dot-status teal"/>;
+}
+
+function SparkTile({ label, unit, value, series, flag }) {
+  const clean = (series||[]).filter(s => s != null);
+  const min = clean.length ? Math.min(...clean) : 0;
+  const max = clean.length ? Math.max(...clean) : 1;
+  const pad = (max - min) * 0.2 || 1;
+  const lo = min - pad, hi = max + pad;
+  const W = 100, H = 28;
+  const points = clean.map((v, i) => {
+    const x = (i / Math.max(1, clean.length - 1)) * W;
+    const y = H - ((v - lo) / (hi - lo)) * H;
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(' ');
+  const color = flag === 'red' ? 'var(--red)' : 'var(--teal)';
+  return (
+    <div className="spark-tile">
+      <div className="lbl">{label}</div>
+      <div className={`v${flag ? ' flag' : ''}`}>
+        {value ?? '—'}
+        <span style={{ fontSize:11, color:'var(--text-3)', marginLeft:4, fontFamily:'IBM Plex Sans Thai' }}>{unit}</span>
+      </div>
+      {clean.length > 1 && (
+        <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none">
+          <polyline points={points} fill="none" stroke={color} strokeWidth="1.5" vectorEffect="non-scaling-stroke"/>
+          {clean.map((v, i) => {
+            const x = (i / Math.max(1, clean.length - 1)) * W;
+            const y = H - ((v - lo) / (hi - lo)) * H;
+            return <circle key={i} cx={x} cy={y} r="1.4" fill={i === clean.length-1 ? color : 'var(--text-3)'}/>;
+          })}
+        </svg>
+      )}
+    </div>
+  );
+}
+
+function PatientCard({ patient: p, vitals, onClick }) {
+  const st = tpStatus(p, vitals);
+  const done = doneTPs(p.hn, vitals);
+  const all = vitalsFor(p.hn, vitals);
+  const lastV = all[all.length - 1];
+  const hasAlert = lastV && evalVitals(lastV).some(i => i.sev === 'red');
+  return (
+    <div className="patient-card" onClick={onClick}>
+      <div className="top-row">
+        <StatusDot patient={p} vitals={vitals}/>
+        <span className="name" title={p.name} style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:140}}>{p.name.replace('Baby ของ ','')}</span>
+        <span className="hn mono">{p.bed||p.hn}</span>
+      </div>
+      <div className="meta">
+        <span>GA <span className="mono">{p.ga}</span> wk</span>
+        <span>BW <span className="mono">{p.bw}</span> g</span>
+        <span>อายุ <span className="mono">{ageHours(p)}</span> hr</span>
+      </div>
+      <div className="progress-row">
+        {TIMEPOINTS.map(tp => {
+          const rec = all.find(v => v.ageHr === tp);
+          const isAlert = rec && evalVitals(rec).some(i => i.sev === 'red');
+          const cls = isAlert ? 'alert' : done.has(tp) ? 'done' : tp === st.tp ? 'next' : '';
+          return <div key={tp} className={`tp-pip ${cls}`} title={tp}/>;
+        })}
+      </div>
+      <div className="foot">
+        <span className="due">{st.tp ? <>ถัดไป <strong>{st.tp}</strong></> : <>เสร็จสิ้น</>}</span>
+        <span style={{ color: hasAlert?'var(--red)':st.cat==='overdue'?'var(--red-2)':st.cat==='soon'?'var(--amber-2)':'var(--text-3)', fontWeight:600, fontSize:11 }}>
+          {hasAlert ? '⚠ ผิดปกติ' : st.label}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════
+// DASHBOARD
+// ══════════════════════════════════════════════════
+
+function Dashboard({ patients, vitals, onOpenPatient, onGo }) {
+  const stats = useMemo(() => {
+    let overdue=0, soon=0, ok=0, done=0, alerts=0;
+    patients.forEach(p => {
+      const st = tpStatus(p, vitals);
+      if (st.cat==='overdue') overdue++;
+      else if (st.cat==='soon') soon++;
+      else if (st.cat==='ok')   ok++;
+      else if (st.cat==='done') done++;
+      vitalsFor(p.hn, vitals).forEach(v => { if (evalVitals(v).some(i=>i.sev==='red')) alerts++; });
+    });
+    return { overdue, soon, ok, done, alerts, total:patients.filter(p=>!p.archived).length };
+  }, [patients, vitals]);
+
+  const cols = [
+    { key:'overdue', label:'เลยกำหนด', en:'OVERDUE' },
+    { key:'soon',    label:'ใกล้ครบ',   en:'DUE SOON' },
+    { key:'ok',      label:'ปกติ',      en:'ON TRACK' },
+    { key:'done',    label:'เสร็จสิ้น', en:'COMPLETE' },
+  ];
+
+  return (
+    <div className="panel">
+      <div className="page-head">
+        <div>
+          <h1>Ward Board</h1>
+          <div className="sub">ภาพรวม EOS Surveillance · NICU · {new Date().toLocaleDateString('th-TH',{weekday:'long',day:'numeric',month:'long'})}</div>
+        </div>
+        <div className="right">
+          <button className="btn btn-primary btn-sm" onClick={() => onGo('triage')}><Icon name="plus"/>เปิดเคสใหม่</button>
+        </div>
+      </div>
+
+      <div className="stat-grid">
+        <div className="stat red"><div className="accent"/><div className="lbl">Active Alerts</div><div className="val">{stats.alerts}</div><div className="trend">Vital signs ผิดปกติ</div></div>
+        <div className="stat amber"><div className="accent"/><div className="lbl">รอตรวจ / ใกล้ครบ</div><div className="val">{stats.overdue+stats.soon}</div><div className="trend">{stats.overdue} เลยกำหนด · {stats.soon} ใกล้ครบ</div></div>
+        <div className="stat teal"><div className="accent"/><div className="lbl">กำลังเฝ้าระวัง</div><div className="val">{stats.total}<span className="suf">เคส</span></div><div className="trend">{stats.done} เสร็จสิ้นแล้ว</div></div>
+        <div className="stat green"><div className="accent"/><div className="lbl">ครบ 7 Timepoints</div><div className="val">{stats.done}</div><div className="trend">Serial PE เสร็จสิ้น 44 hr</div></div>
+      </div>
+
+      <div className="board">
+        {cols.map(col => (
+          <div key={col.key} className={`board-col ${col.key}`}>
+            <div className="board-col-head">
+              <span className={`dot-status ${col.key==='overdue'?'red':col.key==='soon'?'amber':col.key==='ok'?'teal':'green'}`}/>
+              <span className="title">{col.label} · {col.en}</span>
+              <span className="count">{patients.filter(p=>tpStatus(p,vitals).cat===col.key).length}</span>
+            </div>
+            {patients.filter(p=>tpStatus(p,vitals).cat===col.key).map(p => (
+              <PatientCard key={p.hn} patient={p} vitals={vitals} onClick={() => onOpenPatient(p.hn)}/>
+            ))}
+            {patients.filter(p=>tpStatus(p,vitals).cat===col.key).length===0 && (
+              <div style={{padding:'24px 8px',textAlign:'center',color:'var(--text-3)',fontSize:12,fontStyle:'italic'}}>ไม่มีเคส</div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════
+// PATIENT DETAIL
+// ══════════════════════════════════════════════════
+
+function PatientDetail({ patient: p, vitals, onBack, onAddPE, onDischarge, session }) {
+  const all = vitalsFor(p.hn, vitals);
+  const last = all[all.length - 1];
+  const lastIssues = last ? evalVitals(last) : [];
+  const hasAlert = lastIssues.some(i => i.sev === 'red');
+  const st = tpStatus(p, vitals);
+  const rc = EOS.ROLE_CFG[session.role];
+  const intakeCalc = calcEOSRisk({ ga:p.ga, romHours:p.intake?.rom||0, maternalTemp:p.intake?.fever||37, gbsStatus:p.intake?.gbs||'unk', iapStatus:p.intake?.iap||'none' });
+  const intakeCat = riskCategory(intakeCalc);
+
+  return (
+    <div className="panel">
+      <div className="page-head">
+        <div className="flex items-center gap-12">
+          <button className="btn btn-ghost btn-sm" onClick={onBack}><Icon name="arrow_left"/>กลับ Ward Board</button>
+          {rc.canDischarge && !p.archived && (
+            <button className="btn btn-sm" style={{background:'#fef2f2',border:'1px solid var(--red)',color:'var(--red-2)'}} onClick={() => onDischarge(p.hn)}>Discharge</button>
+          )}
+        </div>
+      </div>
+
+      {hasAlert && (
+        <div className="banner red mb-16" style={{borderLeft:'4px solid var(--red)'}}>
+          <Icon name="warn"/>
+          <div style={{flex:1}}>
+            <div className="title">พบความผิดปกติ — ต้องการการประเมินทันที</div>
+            <div style={{marginTop:4}}>ตรวจครั้งล่าสุด {fmtRelative(last.ts)} · {lastIssues.filter(i=>i.sev==='red').map(i=>i.k+' '+i.txt).join(' · ')}</div>
+            <div style={{marginTop:10,display:'flex',gap:8}}>
+              <button className="btn btn-danger btn-sm" onClick={()=>{EOS.auditLog('ABX_REQUESTED',`HN:${EOS.maskHn(p.hn)} by ${session.name}`);alert('⚠️ บันทึกแล้ว\nแจ้งแพทย์เพื่อพิจารณาสั่ง Empirical ABX\nการยืนยัน ABX ต้องดำเนินการโดยแพทย์ผ่านหน้า ABX Approval');}}><Icon name="syringe"/>เริ่ม Empirical ABX</button>
+              <button className="btn btn-ghost btn-sm" onClick={()=>EOS.auditLog('NOTIFY_DOCTOR',`HN:${EOS.maskHn(p.hn)}`)}>แจ้งแพทย์</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="detail-grid">
+        <div>
+          <div className="card profile-card">
+            <div className="name">{p.name}</div>
+            <div className="hn-line">HN {p.hn} · {p.bed||'—'}</div>
+            <div style={{display:'flex',gap:6,marginTop:10,flexWrap:'wrap'}}>
+              {p.triageOutcome==='workup'   && <span className="badge badge-red">Workup + Serial PE</span>}
+              {p.triageOutcome==='serialPE' && <span className="badge badge-amber">Serial PE</span>}
+              {p.triageOutcome==='observe'  && <span className="badge badge-green">Observation</span>}
+              {p.archived && <span className="badge badge-grey">เสร็จสิ้น</span>}
+              <span className={`badge badge-${intakeCat.badge}`}>EOS {intakeCat.en}</span>
+            </div>
+            <div className="kv">
+              <div className="k">เพศ / GA</div><div className="v">{p.sex==='M'?'ชาย':'หญิง'} · <span className="mono">{p.ga}</span> wk</div>
+              <div className="k">น้ำหนักแรกเกิด</div><div className="v mono">{p.bw} g</div>
+              <div className="k">เกิดเมื่อ</div><div className="v">{fmtDateTime(p.dob)}</div>
+              <div className="k">อายุปัจจุบัน</div><div className="v mono">{ageHours(p)} hr</div>
+              {p.motherName && <><div className="k">มารดา</div><div className="v">{p.motherName}</div></>}
+              <div className="k">Maternal Fever</div><div className="v">{p.intake?.maternalFever==='yes'?`มี ${p.intake.fever??'—'}°C`:'ไม่มีไข้'}</div>
+              <div className="k">GBS</div><div className="v">{{pos:'Positive',neg:'Negative',unk:'Unknown'}[p.intake?.gbs]||'—'}</div>
+              <div className="k">ROM</div><div className="v mono">{p.intake?.rom??'—'} hr</div>
+              <div className="k">IAP</div><div className="v">{{adequate:'Adequate (≥4hr)',partial:'Partial',none:'None'}[p.intake?.iap]||'—'}</div>
+            </div>
+          </div>
+
+          <div className="card mt-14">
+            <div className="card-head">
+              <span className="card-title">EOS Risk · Kaiser</span>
+              <span className={`badge badge-${intakeCat.badge}`} style={{marginLeft:'auto'}}>{intakeCat.en}</span>
+            </div>
+            <div style={{textAlign:'center',padding:'6px 0 4px'}}>
+              <div className="mono" style={{fontSize:36,fontWeight:700,letterSpacing:'-1px'}}>{intakeCalc < 0.01 ? intakeCalc.toFixed(3) : intakeCalc.toFixed(2)}</div>
+              <div className="muted" style={{fontSize:11}}>ต่อ 1,000 ทารกเกิดมีชีพ</div>
+            </div>
+            <div className="divider"/>
+            <div style={{fontWeight:600,fontSize:13,marginBottom:6}}>{intakeCat.recommend}</div>
+            <div style={{fontSize:12,color:'var(--text-2)',lineHeight:1.55}}>{intakeCat.detail}</div>
+          </div>
+        </div>
+
+        <div>
+          <div className="card mb-12">
+            <div className="card-head">
+              <span className="card-title">Latest Vitals</span>
+              <span className="card-sub" style={{marginLeft:'auto'}}>{last ? fmtRelative(last.ts) : 'ยังไม่มีบันทึก'}</span>
+            </div>
+            {last ? (
+              <div className="spark-grid">
+                <SparkTile label="Temp" unit="°C" value={last.T} series={all.map(v=>v.T)} flag={vitalFlag('T',last.T)}/>
+                <SparkTile label="Heart Rate" unit="bpm" value={last.P} series={all.map(v=>v.P)} flag={vitalFlag('P',last.P)}/>
+                <SparkTile label="Resp Rate" unit="/min" value={last.R} series={all.map(v=>v.R)} flag={vitalFlag('R',last.R)}/>
+                <SparkTile label="SpO₂" unit="%" value={last.SpO2} series={all.map(v=>v.SpO2)} flag={vitalFlag('SpO2',last.SpO2)}/>
+                <div className="spark-tile">
+                  <div className="lbl">Skin</div>
+                  <div className="v" style={{color:last.skin==='Rosy'?'var(--text)':'var(--red)'}}>{last.skin||'—'}</div>
+                  <div style={{fontSize:10,color:'var(--text-3)',marginTop:2}}>{last.wellbeing==='yes'?'Wellbeing ปกติ':'⚠ Wellbeing ผิดปกติ'}</div>
+                </div>
+                <div className="spark-tile">
+                  <div className="lbl">Distress</div>
+                  <div className="v" style={{fontSize:13,color:(last.rd&&last.rd.length)?'var(--red)':'var(--teal)'}}>
+                    {(last.rd&&last.rd.length)?last.rd.join(', '):'ไม่มี'}
+                  </div>
+                  <div style={{fontSize:10,color:'var(--text-3)',marginTop:2}}>BP {last.BP||'—'}</div>
+                </div>
+              </div>
+            ) : (
+              <div className="muted center" style={{padding:24}}>ยังไม่มีข้อมูล vital signs</div>
+            )}
+          </div>
+
+          <div className="card">
+            <div className="card-head">
+              <span className="card-title">Serial PE Timeline</span>
+              {!p.archived && (
+                <button className="btn btn-primary btn-sm" style={{marginLeft:'auto'}} onClick={()=>onAddPE(p)}>
+                  <Icon name="plus"/>บันทึก {st.tp||'44 hr'}
+                </button>
+              )}
+            </div>
+            <div className="timeline">
+              {TIMEPOINTS.map(tp => {
+                const rec = all.find(v=>v.ageHr===tp);
+                const issues = rec ? evalVitals(rec) : [];
+                const hasRed = issues.some(i=>i.sev==='red');
+                const cls = rec ? (hasRed?'alert':'done') : tp===st.tp?'due':'';
+                const dueAt = tpDueAt(p, tp);
+                const isABX = EOS.ABX_TPS.has(tp);
+                return (
+                  <div key={tp} className={`timeline-row ${cls}`}>
+                    <div className="age">
+                      {tp}
+                      {isABX && <div style={{fontSize:9,color:'var(--amber-2)',fontWeight:700,marginTop:2}}>ABX TO</div>}
+                    </div>
+                    <div className="body">
+                      <div className="ts">
+                        {rec ? fmtDateTime(rec.ts) : `กำหนด: ${fmtDateTime(dueAt.toISOString())}`}
+                        {rec?.staff && <> · {rec.staff}</>}
+                        {rec?.abxApproved && <> · <span style={{color:'var(--green)',fontWeight:600}}>ABX: {rec.abxDecision==='stop'?'หยุดแล้ว':'ต่อแล้ว'}</span></>}
+                      </div>
+                      {rec ? (
+                        <>
+                          <div className="summary">{issues.length===0?'ตรวจร่างกายปกติ':hasRed?'⚠ พบความผิดปกติ':'ค่าผิดปกติเล็กน้อย'}</div>
+                          <div className="vitals-row">
+                            {[['T',rec.T,'T'],['HR',rec.P,'P'],['RR',rec.R,'R'],['SpO₂',rec.SpO2,'SpO2']].map(([label,val,key])=>(
+                              <span key={label} className={`v${vitalFlag(key,val)?' flag':''}`}><span className="k">{label}</span><span className="n">{val??'—'}</span></span>
+                            ))}
+                            <span className="v"><span className="k">Skin</span><span className="n">{rec.skin}</span></span>
+                          </div>
+                          {issues.length>0 && (
+                            <div className="issues">
+                              {issues.map((iss,idx)=><span key={idx} className={`badge badge-${iss.sev==='red'?'red':'amber'}`}>{iss.k}: {iss.txt}</span>)}
+                            </div>
+                          )}
+                          {rec.management && <div style={{fontSize:11,color:'var(--text-2)',marginTop:4}}>Plan: {rec.management}</div>}
+                        </>
+                      ) : tp===st.tp ? (
+                        <div className="summary muted">▸ ถัดไป — <button className="btn btn-primary btn-xs" onClick={()=>onAddPE(p)} style={{marginLeft:6}}>บันทึกเดี๋ยวนี้</button></div>
+                      ) : (
+                        <div className="summary muted" style={{fontStyle:'italic'}}>รอการตรวจ</div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════
+// PATIENT LIST
+// ══════════════════════════════════════════════════
+
+function PatientList({ patients, vitals, onOpenPatient }) {
+  const [q, setQ] = useState('');
+  const [filter, setFilter] = useState('active');
+  const filtered = patients.filter(p => {
+    if (filter==='active' && p.archived) return false;
+    if (filter==='done' && !p.archived) return false;
+    if (q && !(p.name+p.hn+(p.bed||'')).toLowerCase().includes(q.toLowerCase())) return false;
+    return true;
+  });
+  return (
+    <div className="panel">
+      <div className="page-head">
+        <div><h1>Patients</h1><div className="sub">รายชื่อทารกในการเฝ้าระวัง EOS ({patients.length} ราย)</div></div>
+        <div className="right">
+          <div className="seg">
+            {[['all','ทั้งหมด'],['active','กำลังเฝ้าระวัง'],['done','เสร็จสิ้น']].map(([k,l])=>(
+              <button key={k} className={filter===k?'active':''} onClick={()=>setFilter(k)}>{l}</button>
+            ))}
+          </div>
+          <div style={{position:'relative'}}>
+            <Icon name="search" size={16} style={{position:'absolute',left:10,top:9,color:'var(--text-3)'}}/>
+            <input className="input" style={{paddingLeft:32,width:200,height:36}} placeholder="HN / ชื่อ" value={q} onChange={e=>setQ(e.target.value)}/>
+          </div>
+        </div>
+      </div>
+      <div className="card" style={{padding:0,overflow:'auto'}}>
+        <table className="eos">
+          <thead><tr><th>สถานะ</th><th>ชื่อ / มารดา</th><th>HN</th><th>เตียง</th><th>GA</th><th>BW</th><th>อายุ</th><th>EOS Risk</th><th>ถัดไป / สถานะ</th><th></th></tr></thead>
+          <tbody>
+            {filtered.map(p => {
+              const st = tpStatus(p, vitals);
+              const cal = calcEOSRisk({ga:p.ga,romHours:p.intake?.rom||0,maternalTemp:p.intake?.fever||37,gbsStatus:p.intake?.gbs||'unk',iapStatus:p.intake?.iap||'none'});
+              const cat = riskCategory(cal);
+              return (
+                <tr key={p.hn} onClick={()=>onOpenPatient(p.hn)} style={{cursor:'pointer'}}>
+                  <td><StatusDot patient={p} vitals={vitals}/></td>
+                  <td><div style={{fontWeight:600}}>{p.name}</div><div className="muted" style={{fontSize:11}}>{p.motherName}</div></td>
+                  <td className="mono">{p.hn}</td>
+                  <td>{p.bed||'—'}</td>
+                  <td className="mono">{p.ga} wk</td>
+                  <td className="mono">{p.bw} g</td>
+                  <td className="mono">{ageHours(p)} hr</td>
+                  <td><span className={`badge badge-${cat.badge}`}>{cal.toFixed(2)} · {cat.en}</span></td>
+                  <td style={{color:st.cat==='overdue'?'var(--red)':st.cat==='soon'?'var(--amber)':'inherit',fontWeight:st.cat==='overdue'||st.cat==='soon'?600:400,fontSize:12}}>{st.label}</td>
+                  <td><button className="btn btn-ghost btn-xs">เปิด →</button></td>
+                </tr>
+              );
+            })}
+            {filtered.length===0&&<tr><td colSpan={10} style={{textAlign:'center',padding:32,color:'var(--text-3)'}}>ไม่พบรายการ</td></tr>}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════
+// TRIAGE
+// ══════════════════════════════════════════════════
+
+function Triage({ onCreated, onCancel }) {
+  const [q1, setQ1] = useState(null);
+  const [q2, setQ2] = useState(null);
+  const [q3, setQ3] = useState(null);
+  const [form, setForm] = useState({ motherName:'', hn:'', ga:38, bw:3000, bed:'NICU-', feverTemp:38.6, rom:12, gbsStatus:'unk', chorio:false });
+  const upd = (k,v) => setForm(f=>({...f,[k]:v}));
+
+  let current=1;
+  if (q1!==null) current=2;
+  if (q1===false&&q2!==null) current=3;
+  if (q1===true||(q1===false&&q2===false)||(q1===false&&q2===true&&q3!==null)) current=4;
+
+  let outcome=null;
+  if (q1===true) outcome={type:'workup',verdict:'red',title:form.chorio?'Chorioamnionitis → H/C + CBC + Empirical ABX':'H/C + CBC · Serial PE',actions:form.chorio?['Chorioamnionitis — workup บังคับ','เจาะ Blood culture และ CBC ภายในอายุ 0–6 hr','เริ่ม Empirical ABX ทันที (แพทย์ยืนยัน)','ABX Time-out ที่ 36 และ 44 hr']:['เจาะ Blood culture และ CBC ภายในอายุ 0–6 hr','เริ่ม Serial PE ทันที','พิจารณา Empirical ABX ตามอาการ','ABX Time-out ที่ 36 และ 44 hr']};
+  else if (q1===false&&q2===false) outcome={type:'observe',verdict:'green',title:'Routine Care',actions:['ดูแลตามปกติ','ไม่ต้องการ Serial PE','หากอาการเปลี่ยนแปลง ให้ประเมินใหม่']};
+  else if (q1===false&&q2===true&&q3===true) outcome={type:'observe',verdict:'green',title:'Routine Care (IAP Adequate)',actions:['IAP เพียงพอ — Routine care','หากอาการเปลี่ยนแปลง ให้ประเมินใหม่']};
+  else if (q1===false&&q2===true&&q3===false) outcome={type:'serialPE',verdict:'amber',title:'Serial Physical Examinations',actions:['ตรวจร่างกายตาม 7 timepoints','หากพบผิดปกติ → พิจารณา ABX','ABX Time-out ที่ 36 และ 44 hr (แพทย์)']};
+
+  const handleSubmit = () => {
+    if (!outcome||!form.motherName) return;
+    if (+form.ga < 34) return alert('⚠️ EOS Smart Alert ใช้สำหรับ GA ≥ 34 สัปดาห์เท่านั้น\nกรุณาตรวจสอบ GA อีกครั้ง');
+    const p = {
+      hn: form.hn||`68/${10000+Math.floor(Math.random()*9000)}`,
+      name: 'Baby ของ '+form.motherName, motherName:form.motherName,
+      sex:'M', ga:+form.ga, bw:+form.bw, bed:form.bed,
+      dob:EOS.nowISO(),
+      intake:{maternalFever:q1?'yes':'no',fever:q1?+form.feverTemp:null,chorio:form.chorio||false,gbs:form.gbsStatus,rom:+form.rom,iap:q3===true?'adequate':q3===false?'none':'partial'},
+      triageOutcome:outcome.type, isSerialPE:outcome.type!=='observe', archived:false,
+      ts:EOS.nowISO(), synced:false,
+    };
+    EOS.auditLog('TRIAGE_SAVE',`HN:${EOS.maskHn(p.hn)} → ${p.triageOutcome}`);
+    onCreated(p);
+  };
+
+  const questions = [
+    { num:1, q:'มารดามีไข้ ≥ 38°C หรือ Chorioamnionitis?', en:'Intrapartum fever ≥ 38°C or chorioamnionitis',
+      state:q1, set:setQ1, locked:false, yesClass:'danger', noClass:'',
+      extra:q1===true&&<div className="mt-12"><div className="row-2"><div className="field"><label>อุณหภูมิมารดา (°C)</label><input className="mono" type="number" step="0.1" value={form.feverTemp} onChange={e=>upd('feverTemp',+e.target.value)}/></div></div><div className="field mt-8" style={{display:'flex',alignItems:'center',gap:8}}><input type="checkbox" id="chorio-chk" checked={form.chorio} onChange={e=>upd('chorio',e.target.checked)} style={{width:16,height:16}}/><label htmlFor="chorio-chk" style={{fontWeight:600,color:'var(--red-2)'}}>ได้รับการวินิจฉัย Chorioamnionitis (→ workup + พิจารณา Empirical ABX)</label></div></div> },
+    { num:2, q:'มารดา GBS Positive หรือมี Risk Factors?', en:'GBS colonized or ROM ≥ 18 hr / prior GBS infant',
+      state:q2, set:setQ2, locked:q1===null||q1===true, yesClass:'warn', noClass:'',
+      extra:<div className="row-2 mb-12 mt-8"><div className="field"><label>GBS Status</label><select value={form.gbsStatus} onChange={e=>upd('gbsStatus',e.target.value)}><option value="unk">Unknown</option><option value="pos">Positive</option><option value="neg">Negative</option></select></div><div className="field"><label>ROM (hr)</label><input className="mono" type="number" value={form.rom} onChange={e=>upd('rom',+e.target.value)}/></div></div> },
+    { num:3, q:'ได้รับ IAP เพียงพอ? (Penicillin/Ampicillin ≥ 4 hr ก่อนคลอด)', en:'Adequate intrapartum antibiotic prophylaxis',
+      state:q3, set:setQ3, locked:q1!==false||q2!==true, yesClass:'', noClass:'warn', extra:null },
+  ];
+
+  return (
+    <div className="panel">
+      <div className="page-head">
+        <div><h1>Triage Pathway</h1><div className="sub">คัดกรอง EOS · ทารก GA ≥ 34 สัปดาห์</div></div>
+        <div className="right"><button className="btn btn-ghost btn-sm" onClick={onCancel}>ยกเลิก</button></div>
+      </div>
+      <div className="triage-wrap">
+        <div>
+          <div className="card mb-12">
+            <div className="card-head"><span className="card-title">ข้อมูลทารก</span></div>
+            <div className="row-2">
+              <div className="field"><label>ชื่อมารดา *</label><input value={form.motherName} onChange={e=>upd('motherName',e.target.value)} placeholder="คุณ..."/></div>
+              <div className="field"><label>HN</label><input className="mono" value={form.hn} onChange={e=>upd('hn',e.target.value)} placeholder="68/XXXXX"/></div>
+            </div>
+            <div className="row-3 mt-12">
+              <div className="field"><label>GA (wk) <span style={{color:'var(--red-2)',fontSize:11}}>≥34 wk เท่านั้น</span></label><input className="mono" type="number" step="0.1" min="34" max="43" value={form.ga} onChange={e=>upd('ga',+e.target.value)} style={form.ga<34?{borderColor:'var(--red)'}:{}}/>{form.ga<34&&<div style={{color:'var(--red-2)',fontSize:11,marginTop:4}}>⚠️ EOS protocol สำหรับ GA ≥ 34 wk เท่านั้น</div>}</div>
+              <div className="field"><label>BW (g)</label><input className="mono" type="number" value={form.bw} onChange={e=>upd('bw',+e.target.value)}/></div>
+              <div className="field"><label>เตียง / ห้อง</label><input value={form.bed} onChange={e=>upd('bed',e.target.value)}/></div>
+            </div>
+          </div>
+          {questions.map(({ num, q, en, state, set, locked, yesClass, noClass, extra }) => (
+            <div key={num} className={`triage-step ${locked?'locked':current===num?'current':state!==null?'done':''}`}>
+              <div className="flex items-center"><span className="step-no">{num}</span><span className="q">{q}</span></div>
+              <div className="q-en">{en}</div>
+              <div className="step-body">
+                {extra}
+                <div className="yn-row">
+                  <button className={`chip ${yesClass} ${state===true?'active':''}`} onClick={()=>set(true)}>ใช่ · Yes</button>
+                  <button className={`chip ${noClass} ${state===false?'active':''}`} onClick={()=>set(false)}>ไม่ใช่ · No</button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="outcome">
+          <h4>คำแนะนำ · Recommendation</h4>
+          {outcome ? (
+            <div className={`verdict active ${outcome.verdict}`}>
+              <span className="lg">{outcome.title}</span>
+              <div className="actions"><ul>{outcome.actions.map((a,i)=><li key={i}>{a}</li>)}</ul></div>
+            </div>
+          ) : (
+            <div className="verdict">ตอบคำถามทุกข้อเพื่อรับคำแนะนำ</div>
+          )}
+          {outcome && <button className="btn btn-primary mt-12" style={{width:'100%',justifyContent:'center'}} onClick={handleSubmit} disabled={!form.motherName}><Icon name="check"/>สร้างเคสและเริ่มเฝ้าระวัง</button>}
+          {outcome && !form.motherName && <div style={{fontSize:11,color:'var(--red)',textAlign:'center',marginTop:6}}>กรอกชื่อมารดาก่อน</div>}
+          <div className="card muted mt-14" style={{fontSize:11,color:'var(--text-3)'}}>อ้างอิง: SOO EOS · KCMH NICU (GA ≥ 34 wk)</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════
+// PE FORM (MODAL)
+// ══════════════════════════════════════════════════
+
+function PEForm({ patient: p, vitals, onSave, onClose, session }) {
+  const tp = nextTP(p.hn, vitals) || '44 hr';
+  const isABX = EOS.ABX_TPS.has(tp);
+  const [v, setV] = useState({ wellbeing:'yes', skin:'Rosy', T:'', P:'', R:'', SpO2:'', BP:'', rd:[], management:'' });
+  const upd = (k,val) => setV(s=>({...s,[k]:val}));
+  const toggleRD = key => setV(s=>({...s,rd:s.rd.includes(key)?s.rd.filter(x=>x!==key):[...s.rd,key]}));
+  const issues = useMemo(() => evalVitals({...v,T:v.T===''?null:+v.T,P:v.P===''?null:+v.P,R:v.R===''?null:+v.R,SpO2:v.SpO2===''?null:+v.SpO2}), [v]);
+  const hasRed = issues.some(i=>i.sev==='red');
+
+  const handleSave = () => {
+    const entry = { hn:p.hn, ageHr:tp, ts:EOS.nowISO(), wellbeing:v.wellbeing, skin:v.skin, T:v.T===''?null:+v.T, P:v.P===''?null:+v.P, R:v.R===''?null:+v.R, SpO2:v.SpO2===''?null:+v.SpO2, BP:v.BP, rd:v.rd, staff:session.name, management:v.management, abxApproved:false, synced:false };
+    if (hasRed) EOS.auditLog('ABNORMAL_VITALS',`HN:${EOS.maskHn(p.hn)} ${tp}`);
+    else EOS.auditLog('VITALS_SAVE',`HN:${EOS.maskHn(p.hn)} ${tp}`);
+    onSave(entry); // syncRow handled in handleSavePE (App) — do NOT call here to avoid duplicate GAS posts
+  };
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal" style={{maxWidth:700}} onClick={e=>e.stopPropagation()}>
+        <div className="flex items-center gap-12 mb-12">
+          <div>
+            <h3 style={{marginBottom:0}}>บันทึก Serial PE · <span className="mono">{tp}</span></h3>
+            <div className="sub" style={{marginBottom:0}}>{p.name} · HN {p.hn} · อายุ <span className="mono">{ageHours(p)}</span> hr</div>
+          </div>
+          <button className="icon-btn" style={{marginLeft:'auto'}} onClick={onClose}><Icon name="x"/></button>
+        </div>
+        {isABX && <div className="banner amber mb-12"><Icon name="abx"/><div><div className="title">ABX Time-Out · {tp}</div>ตรวจสอบ clinical status + workup ก่อนตัดสินใจ ABX (โดยแพทย์)</div></div>}
+
+        <div>
+          <h3><span className="num">1</span>General wellbeing · Skin</h3>
+          <div className="row-2 mt-8">
+            <div><label className="lbl">Wellbeing</label><div className="chip-group mt-8"><button className={`chip ${v.wellbeing==='yes'?'active':''}`} onClick={()=>upd('wellbeing','yes')}>ปกติ · Yes</button><button className={`chip danger ${v.wellbeing==='no'?'active':''}`} onClick={()=>upd('wellbeing','no')}>ผิดปกติ · No</button></div></div>
+            <div><label className="lbl">Skin color</label><div className="chip-group mt-8">{EOS.SKIN_OPTS.map(s=><button key={s} className={`chip ${s!=='Rosy'?'danger':''} ${v.skin===s?'active':''}`} onClick={()=>upd('skin',s)}>{s}</button>)}</div></div>
+          </div>
+
+          <h3 className="mt-16"><span className="num">2</span>Vital signs</h3>
+          <div className="row-4">
+            {[{k:'T',label:'Temp',unit:'°C',step:'0.1'},{k:'P',label:'Pulse',unit:'bpm',step:'1'},{k:'R',label:'Resp',unit:'/min',step:'1'},{k:'SpO2',label:'SpO₂',unit:'%',step:'1'}].map(({k,label,unit,step})=>{
+              const flag=vitalFlag(k,v[k]); const r=EOS.RANGES[k];
+              return (<div key={k}><label className="lbl">{label}</label><div className={`vital-input mt-8${flag?' flag':''}`}><input type="number" step={step} value={v[k]} onChange={e=>upd(k,e.target.value)} placeholder="—"/><span className="unit">{unit}</span></div><div className={`vital-range${flag?' flag':''}`}>{r.lo}–{r.hi}</div></div>);
+            })}
+          </div>
+          <div className="row-2 mt-12"><div><label className="lbl">BP (mmHg)</label><div className="vital-input mt-8"><input value={v.BP} onChange={e=>upd('BP',e.target.value)} placeholder="60/40"/><span className="unit">mmHg</span></div></div></div>
+
+          <h3 className="mt-16"><span className="num">3</span>Respiratory distress</h3>
+          <div className="chip-group">{EOS.RD_OPTS.map(rd=><button key={rd} className={`chip danger ${v.rd.includes(rd)?'active':''}`} onClick={()=>toggleRD(rd)}>{rd}</button>)}</div>
+
+          <h3 className="mt-16"><span className="num">4</span>Management / Plan</h3>
+          <div className="field"><textarea rows={2} value={v.management} onChange={e=>upd('management',e.target.value)} placeholder="บันทึกการรักษา / แผนการดูแล..."/></div>
+        </div>
+
+        {issues.length>0 && <div className={`banner ${hasRed?'red':'amber'} mt-16`}><Icon name="warn"/><div><div className="title">{hasRed?'พบความผิดปกติ':'ค่าผิดปกติเล็กน้อย'}</div><div style={{marginTop:4,fontSize:12}}>{issues.map((i,idx)=><span key={idx} style={{marginRight:8}}>· {i.k}: {i.txt}</span>)}</div>{hasRed&&<div style={{marginTop:6,fontWeight:600,fontSize:12}}>→ แนะนำให้แพทย์ประเมินทันที</div>}</div></div>}
+        {issues.length===0&&(v.T||v.P||v.R)&&<div className="banner teal mt-16"><Icon name="check"/><div><div className="title">Vital signs อยู่ในเกณฑ์ปกติ</div></div></div>}
+
+        <div className="modal-foot">
+          <button className="btn btn-ghost" onClick={onClose}>ยกเลิก</button>
+          <button className="btn btn-primary" onClick={handleSave}><Icon name="signature"/>บันทึก Serial PE</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════
+// CALCULATOR
+// ══════════════════════════════════════════════════
+
+function Calculator() {
+  const [p, setP] = useState({ ga:39, romHours:12, maternalTemp:37.5, gbsStatus:'unk', iapStatus:'none' });
+  const upd = (k,v) => setP(s=>({...s,[k]:v}));
+  const risk = calcEOSRisk(p);
+  const cat = riskCategory(risk);
+  const pct = Math.min(1, risk/4);
+  const gc = cat.badge==='red'?'var(--red)':cat.badge==='amber'?'var(--amber)':'var(--teal)';
+  return (
+    <div className="panel">
+      <div className="page-head"><div><h1>EOS Risk Calculator</h1><div className="sub">Kaiser Permanente neonatal EOS calculator (Puopolo 2011)</div></div></div>
+      <div className="calc-grid">
+        <div className="card">
+          <div className="card-head"><span className="card-title">Input Parameters</span></div>
+          <div className="row-2">
+            <div><label className="lbl">Gestational Age</label><div className="vital-input mt-8"><input type="number" step="0.1" min="34" max="42" value={p.ga} onChange={e=>upd('ga',+e.target.value)} className="mono"/><span className="unit">wk</span></div><div className="vital-range">≥ 34 wk</div></div>
+            <div><label className="lbl">Maternal Temp (max)</label><div className="vital-input mt-8"><input type="number" step="0.1" value={p.maternalTemp} onChange={e=>upd('maternalTemp',+e.target.value)} className="mono"/><span className="unit">°C</span></div><div className="vital-range">≥ 38°C เพิ่มความเสี่ยง</div></div>
+          </div>
+          <div className="row-2 mt-12">
+            <div><label className="lbl">ROM Duration</label><div className="vital-input mt-8"><input type="number" value={p.romHours} onChange={e=>upd('romHours',+e.target.value)} className="mono"/><span className="unit">hr</span></div><div className="vital-range">≥ 18 hr = prolonged</div></div>
+            <div><label className="lbl">GBS Status</label><select className="input mt-8" value={p.gbsStatus} onChange={e=>upd('gbsStatus',e.target.value)}><option value="unk">Unknown</option><option value="pos">Positive</option><option value="neg">Negative</option></select></div>
+          </div>
+          <div className="mt-12"><label className="lbl">Intrapartum Antibiotics</label><div className="chip-group mt-8">{[{k:'adequate',l:'Adequate ≥4hr'},{k:'partial',l:'Partial'},{k:'none',l:'None'}].map(o=><button key={o.k} className={`chip ${p.iapStatus===o.k?'active':''}`} onClick={()=>upd('iapStatus',o.k)}>{o.l}</button>)}</div></div>
+          <div className="divider mt-16"/>
+          <div style={{fontSize:12,color:'var(--text-3)',lineHeight:1.6}}><strong style={{color:'var(--text-2)'}}>หมายเหตุ:</strong> จำนวนทารกเกิด EOS ต่อ 1,000 ทารกเกิดมีชีพ (ก่อนพิจารณาอาการทางคลินิก)</div>
+        </div>
+        <div>
+          <div className="gauge-card">
+            <div className="gauge"><svg viewBox="0 0 200 110"><path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="var(--surface-3)" strokeWidth="14" strokeLinecap="round"/><path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke={gc} strokeWidth="14" strokeLinecap="round" strokeDasharray={`${pct*251} 251`}/><circle cx={20+80-80*Math.cos(Math.PI*pct)} cy={100-80*Math.sin(Math.PI*pct)} r="6" fill={gc} stroke="var(--surface)" strokeWidth="2"/></svg></div>
+            <div className="gauge-num">{risk<0.01?risk.toFixed(3):risk.toFixed(2)}</div>
+            <div className="unit-line">ต่อ 1,000 ทารกเกิดมีชีพ</div>
+            <div className={`verdict-pill badge badge-${cat.badge}`} style={{marginTop:14}}>{cat.label} · {cat.en}</div>
+          </div>
+          <div className="card mt-12"><div className="card-title mb-8">คำแนะนำ</div><div style={{fontWeight:700,fontSize:14,marginBottom:8}}>{cat.recommend}</div><div style={{fontSize:12.5,color:'var(--text-2)',lineHeight:1.55}}>{cat.detail}</div></div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════
+// ALERTS LOG
+// ══════════════════════════════════════════════════
+
+function AlertsLog({ patients, vitals, onOpenPatient }) {
+  const items = useMemo(() => {
+    const list = [];
+    patients.forEach(p => {
+      vitalsFor(p.hn, vitals).forEach(v => {
+        const issues = evalVitals(v);
+        const red = issues.filter(i=>i.sev==='red');
+        if (red.length) list.push({kind:'red',p,v,msg:'พบผิดปกติที่ '+v.ageHr+' — '+red.map(i=>i.k+' '+i.txt).join(', ')});
+        else { const amb=issues.filter(i=>i.sev==='amber'); if(amb.length) list.push({kind:'amber',p,v,msg:'ผิดปกติเล็กน้อย '+v.ageHr+' — '+amb.map(i=>i.k+' '+i.txt).join(', ')}); }
+      });
+      const st=tpStatus(p,vitals);
+      if(st.cat==='overdue'&&st.dueIn!=null&&st.dueIn<0) list.push({kind:'amber',p,v:{ts:new Date(Date.now()-Math.abs(st.dueIn)*3600000).toISOString()},msg:`เลยกำหนดตรวจ ${st.tp}`});
+    });
+    return list.sort((a,b)=>new Date(b.v.ts)-new Date(a.v.ts));
+  }, [patients, vitals]);
+  return (
+    <div className="panel">
+      <div className="page-head"><div><h1>Alerts Log</h1><div className="sub">การแจ้งเตือนทั้งหมด ({items.length} รายการ)</div></div></div>
+      <div className="card" style={{padding:0}}>
+        {items.length===0?<div className="muted center" style={{padding:40}}>ยังไม่มีการแจ้งเตือน ✓</div>:items.map((it,idx)=>(
+          <div key={idx} className={`alert-row ${it.kind}`}>
+            <div className="ico"><Icon name={it.kind==='red'?'warn':'clock'}/></div>
+            <div className="body"><div className="title">{it.p.name} · <span className="muted mono">{it.p.bed||it.p.hn}</span></div><div className="desc">{it.msg}</div></div>
+            <div className="when">{fmtRelative(it.v.ts)}</div>
+            <button className="btn btn-ghost btn-xs" onClick={()=>onOpenPatient(it.p.hn)}>เปิด →</button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════
+// HANDOFF SUMMARY
+// ══════════════════════════════════════════════════
+
+function HandoffSummary({ patients, vitals }) {
+  const active = patients.filter(p=>!p.archived);
+  return (
+    <div className="panel">
+      <div className="page-head">
+        <div><h1>Handoff Summary</h1><div className="sub">สรุปส่งเวร · {new Date().toLocaleString('th-TH',{hour:'2-digit',minute:'2-digit',day:'2-digit',month:'short'})}</div></div>
+        <div className="right"><button className="btn btn-ghost btn-sm" onClick={()=>window.print()}><Icon name="print"/>พิมพ์</button></div>
+      </div>
+      {active.length===0&&<div className="card"><div className="muted center" style={{padding:32}}>ไม่มีผู้ป่วย Active</div></div>}
+      {active.map(p=>{
+        const all=vitalsFor(p.hn,vitals), last=all[all.length-1];
+        const done=doneTPs(p.hn,vitals), nxt=nextTP(p.hn,vitals);
+        const abnorms=all.filter(v=>evalVitals(v).some(i=>i.sev==='red'));
+        const lastIssues=last?evalVitals(last):[];
+        const cal=calcEOSRisk({ga:p.ga,romHours:p.intake?.rom||0,maternalTemp:p.intake?.fever||37,gbsStatus:p.intake?.gbs||'unk',iapStatus:p.intake?.iap||'none'});
+        const cat=riskCategory(cal);
+        return (
+          <div key={p.hn} className="card mb-12">
+            <div className="card-head">
+              <span style={{fontSize:18}}>{abnorms.length>0?'🔴':'🟢'}</span>
+              <div><div style={{fontWeight:700,fontSize:15}}>{p.name} <span className="muted mono" style={{fontSize:12}}>HN {p.hn} · {p.bed||'—'}</span></div><div style={{fontSize:12,color:'var(--text-3)'}}>GA {p.ga} wk · BW {p.bw} g · อายุ {ageHours(p)} hr</div></div>
+              <div style={{marginLeft:'auto',display:'flex',gap:6,flexWrap:'wrap'}}>
+                {done.size>0&&<span className="badge badge-teal">ตรวจแล้ว {done.size}/7</span>}
+                {nxt?<span className="badge badge-amber">ถัดไป: {nxt}</span>:<span className="badge badge-green">ครบ 7/7</span>}
+                {abnorms.length>0&&<span className="badge badge-red">ผิดปกติ {abnorms.length} ครั้ง</span>}
+                <span className={`badge badge-${cat.badge}`}>EOS {cal.toFixed(2)}</span>
+              </div>
+            </div>
+            {last?(
+              <>
+                <div style={{fontSize:11,fontWeight:700,textTransform:'uppercase',letterSpacing:'.6px',color:'var(--text-3)',margin:'10px 0 5px'}}>ผลตรวจล่าสุด ({last.ageHr}) · {fmtDateTime(last.ts)}</div>
+                <div style={{fontSize:13,color:'var(--text-2)'}}>T {last.T??'—'}°C · HR {last.P??'—'} · RR {last.R??'—'} · SpO₂ {last.SpO2??'—'}% · Skin: {last.skin||'—'} · WB: {last.wellbeing==='yes'?'ปกติ':'⚠ ผิดปกติ'}</div>
+                {lastIssues.length>0&&<div style={{marginTop:6,display:'flex',gap:5,flexWrap:'wrap'}}>{lastIssues.map((i,idx)=><span key={idx} className={`badge badge-${i.sev==='red'?'red':'amber'}`}>{i.k}: {i.txt}</span>)}</div>}
+                {last.management&&<div style={{marginTop:6,fontSize:12,color:'var(--text-2)'}}><strong>Plan:</strong> {last.management}</div>}
+              </>
+            ):<div style={{fontSize:13,color:'var(--text-3)'}}>ยังไม่มีการตรวจ</div>}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════
+// SCHEDULE
+// ══════════════════════════════════════════════════
+
+function Schedule({ patients, vitals, onOpenPatient }) {
+  const [selHn, setSelHn] = useState('');
+  const patient = patients.find(p=>p.hn===selHn);
+  const all = patient ? vitalsFor(selHn, vitals) : [];
+  const now = Date.now();
+  return (
+    <div className="panel">
+      <div className="page-head"><div><h1>Schedule</h1><div className="sub">ตาราง Serial PE Timepoints</div></div></div>
+      <div className="card mb-14" style={{padding:'12px 16px',display:'flex',alignItems:'center',gap:12}}>
+        <Icon name="patients" size={16} style={{color:'var(--text-3)',flexShrink:0}}/>
+        <select style={{flex:1,border:'none',background:'transparent',fontSize:14,fontWeight:600,color:'var(--teal-2)',outline:'none'}} value={selHn} onChange={e=>setSelHn(e.target.value)}>
+          <option value="">— เลือกผู้ป่วย —</option>
+          {patients.filter(p=>!p.archived).map(p=>{const st=tpStatus(p,vitals);return <option key={p.hn} value={p.hn}>{p.hn} — {p.name} {st.tp?`→ ${st.tp}`:' ✅ ครบ'}</option>;})}
+        </select>
+      </div>
+      {patient?(
+        <div className="card" style={{overflow:'auto'}}>
+          <table className="eos" style={{minWidth:700}}>
+            <thead><tr><th>Timepoint</th><th>เวลาที่กำหนด</th><th>เวลาตรวจจริง</th><th>T°C</th><th>HR</th><th>RR</th><th>Skin</th><th>Status</th></tr></thead>
+            <tbody>
+              {TIMEPOINTS.map(tp=>{
+                const rec=all.find(v=>v.ageHr===tp), dueAt=tpDueAt(patient,tp), diff=(dueAt.getTime()-now)/60000;
+                let rowStyle={}, statusEl;
+                if(rec){rowStyle={background:evalVitals(rec).some(i=>i.sev==='red')?'#fef2f2':'#f0fdf4'};statusEl=evalVitals(rec).some(i=>i.sev==='red')?<span className="badge badge-red">❌ ผิดปกติ</span>:<span className="badge badge-green">✅ ปกติ</span>;}
+                else if(diff<-30){rowStyle={background:'#fef2f2'};statusEl=<span className="badge badge-red">เลยกำหนด</span>;}
+                else if(diff<30){rowStyle={background:'#fffbeb'};statusEl=<span className="badge badge-amber">ใกล้ครบ</span>;}
+                else statusEl=<span style={{color:'var(--text-3)',fontSize:12}}>รอตรวจ</span>;
+                return (
+                  <tr key={tp} style={rowStyle}>
+                    <td className="mono" style={{fontWeight:600}}>{tp}{EOS.ABX_TPS.has(tp)&&<span className="badge badge-navy" style={{marginLeft:6,fontSize:9}}>ABX</span>}</td>
+                    <td className="mono">{fmtDateTime(dueAt.toISOString())}</td>
+                    <td className="mono">{rec?fmtDateTime(rec.ts):'—'}</td>
+                    <td className="mono" style={{color:vitalFlag('T',rec?.T)?'var(--red)':'inherit'}}>{rec?.T??'—'}</td>
+                    <td className="mono" style={{color:vitalFlag('P',rec?.P)?'var(--red)':'inherit'}}>{rec?.P??'—'}</td>
+                    <td className="mono" style={{color:vitalFlag('R',rec?.R)?'var(--red)':'inherit'}}>{rec?.R??'—'}</td>
+                    <td style={{color:rec?.skin&&rec.skin!=='Rosy'?'var(--red)':'inherit'}}>{rec?.skin||'—'}</td>
+                    <td>{statusEl}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          <div style={{marginTop:12,textAlign:'right'}}><button className="btn btn-ghost btn-sm" onClick={()=>onOpenPatient(selHn)}>Patient Detail →</button></div>
+        </div>
+      ):<div className="card"><div className="muted center" style={{padding:40}}>เลือกผู้ป่วยเพื่อดูตาราง</div></div>}
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════
+// ABX APPROVAL
+// ══════════════════════════════════════════════════
+
+function ABXApproval({ patients, vitals, onApprove, session }) {
+  const rc = EOS.ROLE_CFG[session.role];
+  if (!rc.canApproveAbx) return (
+    <div className="panel">
+      <div className="page-head"><div><h1>ABX Approval</h1></div></div>
+      <div className="card" style={{textAlign:'center',padding:'56px 20px'}}>
+        <Icon name="lock" size={48} style={{opacity:.2,marginBottom:14}}/>
+        <div style={{fontSize:17,fontWeight:600,marginBottom:6}}>เฉพาะแพทย์เท่านั้น</div>
+        <div style={{color:'var(--text-3)',fontSize:13}}>การอนุมัติหยุด/ต่อ Antibiotic สงวนสำหรับแพทย์ผู้รับผิดชอบ</div>
+      </div>
+    </div>
+  );
+  const pending = vitals.filter(v=>EOS.ABX_TPS.has(v.ageHr)&&!v.abxApproved);
+  const pMap = Object.fromEntries(patients.map(p=>[p.hn,p]));
+  return (
+    <div className="panel">
+      <div className="page-head"><div><h1>ABX Time-Out Approval</h1><div className="sub">รายการรอการอนุมัติ · เฉพาะแพทย์</div></div></div>
+      {pending.length===0?<div className="card"><div className="muted center" style={{padding:40}}>ไม่มีรายการรอการอนุมัติ ✓</div></div>:pending.map(v=>{
+        const pt=pMap[v.hn], issues=evalVitals(v), hasRed=issues.some(i=>i.sev==='red');
+        return (
+          <div key={v.ts} className="card mb-12" style={{border:'2px solid #7c3aed',background:'linear-gradient(135deg,#f5f3ff,#fff)'}}>
+            <div className="card-head"><Icon name="abx" size={20} style={{color:'#7c3aed'}}/><strong style={{color:'#7c3aed'}}>ABX Time-Out — {v.ageHr}</strong><span className="badge badge-navy" style={{marginLeft:'auto'}}>{v.hn}</span>{pt&&<span style={{marginLeft:8,fontSize:12,color:'var(--text-3)'}}>{pt.name}</span>}</div>
+            <div style={{fontSize:13,color:'var(--text-2)',lineHeight:1.6}}>
+              ตรวจโดย: {v.staff} · {fmtDateTime(v.ts)}<br/>
+              T: {v.T??'—'} · HR: {v.P??'—'} · RR: {v.R??'—'} · SpO₂: {v.SpO2??'—'}% · Skin: {v.skin||'—'}<br/>
+              Status: {hasRed?<span style={{color:'var(--red)',fontWeight:600}}>❌ ผิดปกติ</span>:<span style={{color:'var(--teal)',fontWeight:600}}>✅ ปกติ</span>}
+              {v.management&&<><br/>Plan: {v.management}</>}
+            </div>
+            <div style={{display:'flex',gap:10,marginTop:14}}>
+              <button className="btn btn-sm" style={{background:'#fef2f2',border:'2px solid var(--red)',color:'var(--red-2)',fontWeight:700}} onClick={()=>onApprove(v.ts,'stop',pt?.name||v.hn)}>🛑 หยุด Antibiotic</button>
+              <button className="btn btn-sm" style={{background:'#eff6ff',border:'2px solid #3b82f6',color:'#1d4ed8',fontWeight:700}} onClick={()=>onApprove(v.ts,'continue',pt?.name||v.hn)}>▶️ ต่อ Antibiotic</button>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════
+// ALL RECORDS
+// ══════════════════════════════════════════════════
+
+function AllRecords({ patients, vitals }) {
+  const [tab, setTab] = useState('vitals');
+  const exportCSV = () => {
+    const hdrs=['ts','hn_masked','ageHr','T','P','R','SpO2','BP','skin','rd','wellbeing','management','abxApproved','abxDecision','staff'];
+    const rows=[...vitals].reverse().map(r=>hdrs.map(h=>{
+      if (h==='hn_masked') return `"${EOS.maskHn(r.hn)}"`;
+      if (h==='rd') return `"${(r.rd||[]).join('|')}"`;
+      if (h==='abxApproved') return `"${r.abxApproved?'yes':'no'}"`;
+      return `"${String(r[h]??'').replace(/"/g,'""')}"`;
+    }).join(','));
+    const a=document.createElement('a'); a.href='data:text/csv;charset=utf-8,﻿'+encodeURIComponent([hdrs.join(','),...rows].join('\n'));
+    a.download=`EOS_${new Date().toISOString().slice(0,10)}.csv`; a.click(); EOS.auditLog('EXPORT_CSV','');
+  };
+  return (
+    <div className="panel">
+      <div className="page-head"><div><h1>All Records</h1></div><div className="right"><button className="btn btn-ghost btn-sm" onClick={exportCSV}><Icon name="download"/>Export CSV</button></div></div>
+      <div className="seg mb-14"><button className={tab==='vitals'?'active':''} onClick={()=>setTab('vitals')}>Serial PE ({vitals.length})</button><button className={tab==='patients'?'active':''} onClick={()=>setTab('patients')}>Triage ({patients.length})</button></div>
+      <div className="card" style={{padding:0,overflow:'auto'}}>
+        {tab==='vitals'&&<table className="eos" style={{minWidth:700}}><thead><tr><th>เวลา</th><th>HN</th><th>Timepoint</th><th>T</th><th>HR</th><th>RR</th><th>Skin</th><th>Status</th><th>Staff</th></tr></thead><tbody>{[...vitals].reverse().map((r,i)=>{const hasRed=evalVitals(r).some(x=>x.sev==='red');return(<tr key={i} style={hasRed?{background:'#fef2f2'}:{}}><td className="mono">{fmtDateTime(r.ts)}</td><td className="mono">{EOS.maskHn(r.hn)}</td><td>{r.ageHr}{EOS.ABX_TPS.has(r.ageHr)&&<span className="badge badge-navy" style={{marginLeft:4,fontSize:9}}>ABX</span>}</td><td className="mono" style={{color:vitalFlag('T',r.T)?'var(--red)':'inherit'}}>{r.T??'—'}</td><td className="mono" style={{color:vitalFlag('P',r.P)?'var(--red)':'inherit'}}>{r.P??'—'}</td><td className="mono" style={{color:vitalFlag('R',r.R)?'var(--red)':'inherit'}}>{r.R??'—'}</td><td style={{color:r.skin&&r.skin!=='Rosy'?'var(--red)':'inherit'}}>{r.skin||'—'}</td><td>{hasRed?<span className="badge badge-red">ผิดปกติ</span>:<span className="badge badge-green">ปกติ</span>}</td><td>{r.staff||'—'}</td></tr>);})}</tbody></table>}
+        {tab==='patients'&&<table className="eos"><thead><tr><th>เวลา</th><th>HN</th><th>ชื่อ</th><th>GA</th><th>ผลประเมิน</th><th>Staff</th></tr></thead><tbody>{[...patients].reverse().map((p,i)=><tr key={i} style={p.archived?{opacity:.5}:{}}><td className="mono">{fmtDateTime(p.ts)}</td><td className="mono">{EOS.maskHn(p.hn)}</td><td>{p.name}</td><td className="mono">{p.ga} wk</td><td><span className={`badge badge-${p.triageOutcome==='workup'?'red':p.triageOutcome==='serialPE'?'amber':'green'}`}>{p.triageOutcome}</span></td><td>{p.staff||'—'}</td></tr>)}</tbody></table>}
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════
+// AUDIT LOG
+// ══════════════════════════════════════════════════
+
+function AuditLog({ session }) {
+  const [log, setLog] = useState(() => EOS.getStore(EOS.STORE.audit,[]).slice().reverse());
+  useEffect(() => { const t=setInterval(()=>setLog(EOS.getStore(EOS.STORE.audit,[]).slice().reverse()),15000); return ()=>clearInterval(t); }, []);
+  if (session.role!=='admin') return (
+    <div className="panel"><div className="page-head"><div><h1>Audit Log</h1></div></div><div className="card" style={{textAlign:'center',padding:'56px 20px'}}><Icon name="lock" size={48} style={{opacity:.2,marginBottom:14}}/><div style={{fontSize:17,fontWeight:600}}>เฉพาะ Admin เท่านั้น</div></div></div>
+  );
+  return (
+    <div className="panel">
+      <div className="page-head"><div><h1>Audit Log</h1><div className="sub">{log.length} รายการ</div></div><div className="right"><button className="btn btn-ghost btn-sm" onClick={()=>setLog(EOS.getStore(EOS.STORE.audit,[]).slice().reverse())}><Icon name="refresh"/>Refresh</button></div></div>
+      <div className="card" style={{padding:0,overflow:'auto'}}>
+        <table className="eos"><thead><tr><th>เวลา</th><th>Staff</th><th>Role</th><th>Action</th><th>Detail</th></tr></thead>
+        <tbody>{log.map((r,i)=><tr key={i}><td className="mono" style={{whiteSpace:'nowrap'}}>{fmtDateTime(r.ts)}</td><td>{r.staff}</td><td>{r.role}</td><td><span className="badge badge-teal" style={{fontSize:10}}>{r.action}</span></td><td style={{fontSize:12,color:'var(--text-2)',maxWidth:280}}>{r.detail||'—'}</td></tr>)}
+        {log.length===0&&<tr><td colSpan={5} style={{textAlign:'center',padding:32,color:'var(--text-3)'}}>ยังไม่มีบันทึก</td></tr>}</tbody></table>
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════
+// CONFIG
+// ══════════════════════════════════════════════════
+
+function Config({ session, patients, vitals }) {
+  const [url, setUrl] = useState(()=>EOS.getCfg().url||EOS.DEFAULT_WEBHOOK);
+  const [result, setResult] = useState(null);
+  const [busy, setBusy] = useState('');
+  const save = () => { EOS.setCfg({url}); EOS.auditLog('CONFIG_SAVE','Webhook URL updated'); setResult({ok:true,msg:'✅ บันทึก URL สำเร็จ'}); };
+  const test = async () => { setBusy('test'); setResult(null); try { const r=await EOS.fetchT(url.trim(),{method:'GET'},6000); setResult({ok:r.ok,msg:r.ok?'✅ GAS Online':`⚠️ Status ${r.status}`}); } catch(e){setResult({ok:false,msg:`❌ ${e.message}`});} setBusy(''); };
+  const syncAll = async () => {
+    setBusy('sync'); setResult(null);
+    const pend=[...patients.filter(p=>!p.synced).map(p=>({s:'Triage',r:p})),...vitals.filter(v=>!v.synced).map(v=>({s:'SerialPE',r:v}))];
+    if(!pend.length){setResult({ok:true,msg:'✅ ข้อมูลทุกรายการ Sync แล้ว'});setBusy('');return;}
+    const res=await Promise.allSettled(pend.map(p=>EOS.syncRow(p.s,p.r)));
+    const n=res.filter(r=>r.status==='fulfilled'&&r.value).length;
+    setResult({ok:n===pend.length,msg:`☁️ Sync ${n}/${pend.length}`}); setBusy('');
+  };
+  return (
+    <div className="panel">
+      <div className="page-head"><div><h1>Config</h1><div className="sub">GAS Webhook + Data Sync</div></div></div>
+      <div className="card mb-14">
+        <div className="card-head"><span className="card-title">Google Apps Script Webhook</span></div>
+        <div className="field mb-12"><label>Webhook URL</label><input value={url} onChange={e=>setUrl(e.target.value)} className="mono" style={{fontSize:12}}/></div>
+        <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+          <button className="btn btn-primary" onClick={save}><Icon name="check"/>บันทึก URL</button>
+          <button className="btn btn-ghost" onClick={test} disabled={!!busy}>{busy==='test'?'กำลังทดสอบ…':'ทดสอบ Connection'}</button>
+          <button className="btn btn-ghost" onClick={syncAll} disabled={!!busy}><Icon name="refresh"/>{busy==='sync'?'กำลัง Sync…':'Sync All Pending'}</button>
+        </div>
+        {result&&<div className={`banner ${result.ok?'teal':'red'} mt-12`}>{result.msg}</div>}
+      </div>
+      <div className="card">
+        <div className="card-head"><span className="card-title">ข้อมูลระบบ</span></div>
+        <div className="kv">
+          <div className="k">Version</div><div className="v mono">v3.0 React Edition</div>
+          <div className="k">ผู้ใช้ปัจจุบัน</div><div className="v">{session.name} · {EOS.ROLE_CFG[session.role].label}</div>
+          <div className="k">เข้าสู่ระบบเมื่อ</div><div className="v mono">{fmtDateTime(session.loginAt)}</div>
+          <div className="k">Patients (local)</div><div className="v mono">{patients.length} รายการ</div>
+          <div className="k">Vitals (local)</div><div className="v mono">{vitals.length} รายการ</div>
+          <div className="k">รอ Sync</div><div className="v mono">{patients.filter(p=>!p.synced).length+vitals.filter(v=>!v.synced).length} รายการ</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════
+// USER MANAGEMENT
+// ══════════════════════════════════════════════════
+
+function UserManagement({ session }) {
+  const rc = EOS.ROLE_CFG[session.role];
+  const [users, setUsers] = useState(()=>EOS.getUsers());
+  const [modal, setModal] = useState(null);
+  const [form, setForm] = useState({email:'',name:'',role:'nurse'});
+  const upd = (k,v) => setForm(f=>({...f,[k]:v}));
+  if (!rc.canManageUsers) return (
+    <div className="panel"><div className="page-head"><div><h1>จัดการผู้ใช้</h1></div></div><div className="card" style={{textAlign:'center',padding:'56px 20px'}}><Icon name="lock" size={48} style={{opacity:.2,marginBottom:14}}/><div style={{fontSize:17,fontWeight:600}}>เฉพาะ Admin เท่านั้น</div></div></div>
+  );
+  const openAdd = () => { setForm({email:'',name:'',role:'nurse'}); setModal('add'); };
+  const openEdit = email => { const u=users[email]; setForm({email,name:u.name,role:u.role}); setModal(email); };
+  const save = () => {
+    if(!form.email||!form.name) return;
+    const db={...users,[form.email.toLowerCase()]:{name:form.name,role:form.role}};
+    EOS.saveUsers(db); setUsers(db); EOS.auditLog('USER_SAVE',form.email); setModal(null);
+  };
+  const del = email => {
+    if(!confirm(`ลบ ${email}?`)) return;
+    const db={...users}; delete db[email];
+    EOS.saveUsers(db); setUsers(db); EOS.auditLog('USER_DELETE',email);
+  };
+  return (
+    <div className="panel">
+      <div className="page-head"><div><h1>จัดการผู้ใช้</h1><div className="sub">{Object.keys(users).length} บัญชี</div></div><div className="right"><button className="btn btn-primary btn-sm" onClick={openAdd}><Icon name="plus"/>เพิ่มผู้ใช้</button></div></div>
+      <div className="card" style={{padding:0,overflow:'hidden'}}>
+        <table className="eos"><thead><tr><th>Role</th><th>ชื่อ</th><th>Email</th><th></th></tr></thead>
+        <tbody>{Object.entries(users).map(([email,u])=>{const r=EOS.ROLE_CFG[u.role]||{};return(
+          <tr key={email}><td><span style={{padding:'3px 10px',borderRadius:999,fontSize:11,fontWeight:700,background:r.bg,color:r.color}}>{r.icon} {r.label}</span></td>
+          <td style={{fontWeight:600}}>{u.name}{email===session.email&&<span style={{marginLeft:6,fontSize:10,padding:'2px 8px',borderRadius:999,background:'#e6f3f1',color:'var(--teal-2)'}}>คุณ</span>}</td>
+          <td className="mono" style={{fontSize:12}}>{email}</td>
+          <td style={{display:'flex',gap:6,justifyContent:'flex-end'}}>
+            <button className="btn btn-ghost btn-xs" onClick={()=>openEdit(email)}>แก้ไข</button>
+            {email!==session.email&&<button className="btn btn-xs" style={{background:'#fee2e2',color:'var(--red-2)',border:'1px solid var(--red)'}} onClick={()=>del(email)}>ลบ</button>}
+          </td></tr>);})}</tbody></table>
+      </div>
+      {modal&&(
+        <div className="modal-backdrop" onClick={()=>setModal(null)}>
+          <div className="modal" onClick={e=>e.stopPropagation()}>
+            <h3>{modal==='add'?'เพิ่มผู้ใช้':'แก้ไขผู้ใช้'}</h3>
+            <div className="sub">ต้องใช้ Google Account ที่ลงทะเบียนใน EOS Smart Alert</div>
+            <div className="field mb-12"><label>Email</label><input type="email" value={form.email} onChange={e=>upd('email',e.target.value)} disabled={modal!=='add'} placeholder="name@gmail.com"/></div>
+            <div className="field mb-12"><label>ชื่อ-นามสกุล</label><input value={form.name} onChange={e=>upd('name',e.target.value)} placeholder="พ.ชื่อ / พย.ชื่อ"/></div>
+            <div className="field mb-12"><label>Role</label>
+              <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8,marginTop:8}}>
+                {Object.entries(EOS.ROLE_CFG).map(([k,r])=>(
+                  <div key={k} onClick={()=>upd('role',k)} style={{padding:'10px 8px',border:`1.5px solid ${form.role===k?'var(--teal)':'var(--border-2)'}`,borderRadius:8,textAlign:'center',background:form.role===k?'var(--teal-tint)':'var(--surface)',cursor:'pointer',transition:'all .12s'}}>
+                    <div style={{fontSize:20}}>{r.icon}</div><div style={{fontWeight:700,fontSize:12,marginTop:3}}>{r.label}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="modal-foot"><button className="btn btn-ghost" onClick={()=>setModal(null)}>ยกเลิก</button><button className="btn btn-primary" onClick={save} disabled={!form.email||!form.name}>บันทึก</button></div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+Object.assign(window, {
+  Dashboard, PatientDetail, PatientList, Triage, PEForm, Calculator,
+  AlertsLog, HandoffSummary, Schedule, ABXApproval, AllRecords,
+  AuditLog, Config, UserManagement, PatientCard, SparkTile, StatusDot,
+});
+
+
+// ──── src/eos-app.jsx ────
+// EOS Smart Alert — App shell + routing
+// SRP: app state, sidebar nav, session management only.
+
+// ── PIN / CONFIRM MODAL ──────────────────────────
+function PinModal({ msg, onConfirm, onCancel }) {
+  const [txt, setTxt] = React.useState('');
+  return (
+    <div className="modal-backdrop" onClick={onCancel}>
+      <div className="modal" style={{maxWidth:380,textAlign:'center'}} onClick={e=>e.stopPropagation()}>
+        <h3>🔒 ยืนยันการดำเนินการ</h3>
+        <div className="sub">{msg}</div>
+        <input
+          type="text" value={txt} onChange={e=>setTxt(e.target.value)}
+          onKeyDown={e=>e.key==='Enter'&&onConfirm(txt)}
+          placeholder="พิมพ์ข้อความยืนยัน" autoFocus
+          style={{width:'100%',padding:'10px 13px',border:'1.5px solid var(--border-2)',borderRadius:8,fontSize:16,textAlign:'center',letterSpacing:2,marginBottom:14,fontFamily:'IBM Plex Mono, monospace',outline:'none'}}
+          onFocus={e=>e.target.style.borderColor='var(--teal)'}
+          onBlur={e=>e.target.style.borderColor='var(--border-2)'}
+        />
+        <div style={{display:'flex',gap:8}}>
+          <button className="btn btn-primary" style={{flex:1}} onClick={()=>onConfirm(txt)}>ยืนยัน</button>
+          <button className="btn btn-ghost"   style={{flex:1}} onClick={onCancel}>ยกเลิก</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── SIDEBAR NAV CONFIG ───────────────────────────
+const NAV = [
+  { key:'dashboard', icon:'board',    label:'Ward Board',      section:'Clinical',  roles:['doctor','nurse','admin'] },
+  { key:'patients',  icon:'patients', label:'Patients',        section:'Clinical',  roles:['doctor','nurse','admin'] },
+  { key:'triage',    icon:'triage',   label:'Triage',          section:'Clinical',  roles:['doctor','nurse','admin'] },
+  { key:'calc',      icon:'calc',     label:'EOS Calculator',  section:'Clinical',  roles:['doctor','nurse','admin'] },
+  { key:'handoff',   icon:'handoff',  label:'Handoff Summary', section:'รายงาน',   roles:['doctor','nurse','admin'] },
+  { key:'alerts',    icon:'bell',     label:'Alerts',          section:'รายงาน',   roles:['doctor','nurse','admin'] },
+  { key:'schedule',  icon:'calendar', label:'Schedule',        section:'รายงาน',   roles:['doctor','nurse','admin'] },
+  { key:'abx',       icon:'abx',      label:'ABX Approval',    section:'รายงาน',   roles:['doctor','admin'] },
+  { key:'records',   icon:'list',     label:'All Records',     section:'ระบบ',     roles:['doctor','nurse','admin'] },
+  { key:'audit',     icon:'eye',      label:'Audit Log',       section:'ระบบ',     roles:['admin'] },
+  { key:'config',    icon:'cog',      label:'Config',          section:'ระบบ',     roles:['admin'] },
+  { key:'users',     icon:'users',    label:'จัดการผู้ใช้',     section:'ระบบ',     roles:['admin'] },
+];
+
+const VIEW_TITLES = {
+  dashboard:'Ward Board', patients:'Patients', triage:'Triage', calc:'EOS Calculator',
+  handoff:'Handoff Summary', alerts:'Alerts Log', schedule:'Schedule', abx:'ABX Approval',
+  records:'All Records', audit:'Audit Log', config:'Config', users:'จัดการผู้ใช้',
+  patient:'Patient Detail',
+};
+
+// ── MAIN APP ─────────────────────────────────────
+function App() {
+  const { useState, useEffect } = React;
+
+  // ── State ─────────────────────────────────────
+  const [session, setSession]   = useState(() => EOS.getSession());
+  const [view,    setView]      = useState('dashboard');
+  const [openHn,  setOpenHn]    = useState(null);
+  const [patients, setPatients] = useState(() => { EOS.seedDemoData(); return EOS.getStore(EOS.STORE.patients, []); });
+  const [vitals,   setVitals]   = useState(() => EOS.getStore(EOS.STORE.vitals, []));
+  const [peTarget, setPeTarget] = useState(null);
+  const [pinModal, setPinModal] = useState(null);   // {msg, resolve}
+  const [, tick] = useState(0);
+
+  // ── Effects ───────────────────────────────────
+  useEffect(() => { EOS.setStore(EOS.STORE.patients, patients); }, [patients]);
+  useEffect(() => { EOS.setStore(EOS.STORE.vitals,   vitals);   }, [vitals]);
+
+  // Auto-refresh ward board + session check every 30s
+  useEffect(() => {
+    const t = setInterval(() => {
+      tick(x => x + 1);
+      if (!EOS.getSession()) { setSession(null); }
+    }, 30000);
+    return () => clearInterval(t);
+  }, []);
+
+  // ── Not logged in ──────────────────────────────
+  if (!session) {
+    return <LoginScreen onLogin={sess => { setSession(sess); setView('dashboard'); }}/>;
+  }
+
+  const rc = EOS.ROLE_CFG[session.role];
+  const currentPatient = openHn ? patients.find(p => p.hn === openHn) : null;
+
+  // ── Handlers ──────────────────────────────────
+  const goPatient = hn => { setOpenHn(hn); setView('patient'); };
+  const doLogout  = () => { EOS.auditLog('LOGOUT', session.name); EOS.clearSession(); setSession(null); };
+
+  const showPin = msg => new Promise(resolve => setPinModal({ msg, resolve }));
+
+  const handleCreatePatient = p => {
+    setPatients(arr => [p, ...arr]);
+    EOS.syncRow('Triage', p);
+    goPatient(p.hn);
+  };
+
+  const handleSavePE = entry => {
+    setVitals(arr => [...arr, entry]);
+    setPeTarget(null);
+    EOS.syncRow('SerialPE', entry).then(ok => {
+      if (ok) setVitals(arr => arr.map(v => v.ts === entry.ts ? {...v, synced:true} : v));
+    });
+  };
+
+  const handleDischarge = async hn => {
+    const txt = await showPin(`Discharge HN ${hn}?\nพิมพ์ "ยืนยัน" เพื่อยืนยัน`);
+    setPinModal(null);
+    if ((txt||'').trim() !== 'ยืนยัน') return alert('การยืนยันไม่ถูกต้อง');
+    setPatients(arr => arr.map(p => p.hn===hn ? {...p, archived:true} : p));
+    EOS.auditLog('DISCHARGE', `HN:${EOS.maskHn(hn)}`);
+    setView('dashboard'); setOpenHn(null);
+  };
+
+  const handleApproveAbx = async (ts, decision, patientName) => {
+    const label = decision==='stop' ? 'หยุด Antibiotic' : 'ต่อ Antibiotic';
+    const txt = await showPin(`${label}\n${patientName||''}\nพิมพ์ "ยืนยัน" เพื่อยืนยัน`);
+    setPinModal(null);
+    if ((txt||'').trim() !== 'ยืนยัน') return;
+    setVitals(arr => arr.map(v => v.ts===ts ? {...v, abxApproved:true, abxDecision:decision, abxBy:session.name, abxAt:EOS.nowISO()} : v));
+    EOS.auditLog('ABX_DECISION', `${decision.toUpperCase()} by ${session.name} ts:${ts}`);
+  };
+
+  // ── Nav counts ────────────────────────────────
+  let alertCount=0, dueCount=0;
+  patients.forEach(p => {
+    const st = tpStatus(p, vitals);
+    if (st.cat==='overdue'||st.cat==='soon') dueCount++;
+    vitalsFor(p.hn, vitals).forEach(v => { if (evalVitals(v).some(i=>i.sev==='red')) alertCount++; });
+  });
+  const abxPending = vitals.filter(v => EOS.ABX_TPS.has(v.ageHr) && !v.abxApproved).length;
+
+  // ── Alert ticker ──────────────────────────────
+  const tickerMsgs = [];
+  patients.forEach(p => {
+    const last = vitalsFor(p.hn, vitals).slice(-1)[0];
+    if (last && evalVitals(last).some(i=>i.sev==='red')) tickerMsgs.push(`${p.name} · ${p.bed||p.hn} · ผิดปกติที่ ${last.ageHr}`);
+    const st = tpStatus(p, vitals);
+    if (st.cat==='overdue'&&!p.archived) tickerMsgs.push(`${p.bed||p.hn} · เลยกำหนด ${st.tp}`);
+  });
+
+  // ── Sidebar nav items (role-filtered) ─────────
+  const navItems = NAV.filter(n => n.roles.includes(session.role));
+  let lastSection = '';
+
+  return (
+    <div className="app-shell">
+      {/* ─── SIDEBAR ──────────────────────────── */}
+      <aside className="sidebar">
+        <div className="sidebar-brand">
+          <div className="brand-row">
+            <div className="brand-mark">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 3 4 6v6c0 5 3.5 8.5 8 9 4.5-.5 8-4 8-9V6l-8-3z"/>
+                <path d="M9 12h2v-2h2v2h2v2h-2v2h-2v-2H9z"/>
+              </svg>
+            </div>
+            <div>
+              <div className="brand-name">EOS Smart Alert</div>
+              <div className="brand-sub">v3.0 · KCMH NICU</div>
+            </div>
+          </div>
+          <div className="ward-chip">
+            <span className="ward-dot"/>
+            <div>
+              <div className="label">WARD</div>
+              <div className="val">NICU · จุฬาลงกรณ์</div>
+            </div>
+          </div>
+        </div>
+
+        <nav className="sidebar-nav">
+          {navItems.map(n => {
+            const showSection = n.section !== lastSection;
+            lastSection = n.section;
+            const isActive = view === n.key || (n.key==='dashboard' && view==='patient');
+            const count = n.key==='alerts' ? alertCount : n.key==='abx' ? abxPending : n.key==='dashboard' ? dueCount : 0;
+            return (
+              <React.Fragment key={n.key}>
+                {showSection && <div className="nav-section">{n.section}</div>}
+                <button
+                  className={`nav-item${isActive?' active':''}`}
+                  onClick={() => { setView(n.key); if (n.key!=='patient') setOpenHn(null); }}>
+                  <Icon name={n.icon} size={17}/>
+                  <span>{n.label}</span>
+                  {count>0 && <span className={`nav-count ${n.key==='alerts'?'alert':n.key==='abx'?'warn':n.key==='dashboard'?'warn':''}`}>{count}</span>}
+                </button>
+              </React.Fragment>
+            );
+          })}
+        </nav>
+
+        <div className="sidebar-foot">
+          <div className="avatar" style={{background:rc.bg, color:rc.color}}>{session.name.slice(0,2)}</div>
+          <div className="info">
+            <div className="name">{session.name}</div>
+            <div className="role">{rc.icon} {rc.label}</div>
+          </div>
+          <button className="icon-btn" style={{color:'rgba(255,255,255,.5)'}} onClick={doLogout} title="ออกจากระบบ"><Icon name="logout"/></button>
+        </div>
+      </aside>
+
+      {/* ─── MAIN ─────────────────────────────── */}
+      <main className="main">
+        {/* Alert ticker */}
+        {tickerMsgs.length>0 && (
+          <div className="alert-ticker">
+            <Icon name="warn" size={16}/>
+            <span className="label">URGENT</span>
+            <div className="messages"><span>{tickerMsgs.join(' · ')} · {tickerMsgs.join(' · ')}</span></div>
+          </div>
+        )}
+
+        {/* Topbar */}
+        <header className="topbar">
+          <div className="topbar-title">
+            {view==='patient'&&currentPatient ? (
+              <><span className="breadcrumb">Patients /</span> {currentPatient.name}</>
+            ) : (
+              VIEW_TITLES[view]||'EOS Smart Alert'
+            )}
+          </div>
+          <div className="topbar-right">
+            <div className="live-clock">
+              <span className="dot"/>
+              LIVE · {new Date().toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'})}
+            </div>
+            <button className="icon-btn" onClick={()=>setView('alerts')} title="Alerts">
+              <Icon name="bell"/>
+              {alertCount>0 && <span className="badge-dot"/>}
+            </button>
+            <button className="icon-btn" onClick={()=>setView('config')} title="Config"><Icon name="cog"/></button>
+          </div>
+        </header>
+
+        {/* Content */}
+        <div className="content">
+          <div className="content-inner">
+            {view==='dashboard' && <Dashboard patients={patients} vitals={vitals} onOpenPatient={goPatient} onGo={setView}/>}
+            {view==='patients'  && <PatientList patients={patients} vitals={vitals} onOpenPatient={goPatient}/>}
+            {view==='triage'    && <Triage onCreated={handleCreatePatient} onCancel={()=>setView('dashboard')}/>}
+            {view==='calc'      && <Calculator/>}
+            {view==='alerts'    && <AlertsLog patients={patients} vitals={vitals} onOpenPatient={goPatient}/>}
+            {view==='handoff'   && <HandoffSummary patients={patients} vitals={vitals}/>}
+            {view==='schedule'  && <Schedule patients={patients} vitals={vitals} onOpenPatient={goPatient}/>}
+            {view==='abx'       && <ABXApproval patients={patients} vitals={vitals} onApprove={handleApproveAbx} session={session}/>}
+            {view==='records'   && <AllRecords patients={patients} vitals={vitals} session={session}/>}
+            {view==='audit'     && <AuditLog session={session}/>}
+            {view==='config'    && <Config session={session} patients={patients} vitals={vitals}/>}
+            {view==='users'     && <UserManagement session={session}/>}
+            {view==='patient'   && currentPatient && (
+              <PatientDetail
+                patient={currentPatient} vitals={vitals}
+                onBack={()=>setView('dashboard')}
+                onAddPE={setPeTarget}
+                onDischarge={handleDischarge}
+                session={session}
+              />
+            )}
+          </div>
+        </div>
+      </main>
+
+      {/* PE Form Modal */}
+      {peTarget && (
+        <PEForm patient={peTarget} vitals={vitals} onSave={handleSavePE} onClose={()=>setPeTarget(null)} session={session}/>
+      )}
+
+      {/* Pin/Confirm Modal */}
+      {pinModal && (
+        <PinModal
+          msg={pinModal.msg}
+          onConfirm={txt => { pinModal.resolve(txt); setPinModal(null); }}
+          onCancel={()  => { pinModal.resolve(null); setPinModal(null); }}
+        />
+      )}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+
+</script>
+</body>
+</html>

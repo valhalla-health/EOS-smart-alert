@@ -1,0 +1,21 @@
+# Python
+v5/__pycache__/
+v5/*.pyc
+*.pyc
+*.pyo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+*.swp
+*.swo
+
+# Secrets / local config
+*.env
+.env.local
+
+# Watchdog temp
+*.tmp
