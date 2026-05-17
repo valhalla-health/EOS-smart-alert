@@ -17,5 +17,16 @@ Thumbs.db
 *.env
 .env.local
 
+# IRB and research documents (sensitive — stored locally only)
+docs/IRB/
+docs/*.docx
+docs/*.doc
+docs/*.pdf
+docs/*.jpg
+docs/*.jpeg
+docs/*.png
+docs/*.xml
+docs/*.py
+
 # Watchdog temp
 *.tmp
