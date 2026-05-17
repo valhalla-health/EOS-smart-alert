@@ -1,11 +1,9 @@
-// EOS Smart Alert — Login Screen component
-// SRP: Google Sign-In, email lookup, session creation. No panel logic.
+// EOS Smart Alert — Login Screen v2
+// Design: Clinical Night Mode — navy bg, glass card, ECG animation
+// Auth: Google Sign-In only (GAS server-side JWT verify) — email fallback removed
 
 function LoginScreen({ onLogin }) {
   const { useState, useEffect } = React;
-  const [step,    setStep]    = useState(1);
-  const [email,   setEmail]   = useState('');
-  const [staff,   setStaff]   = useState(null);
   const [err,     setErr]     = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -15,49 +13,37 @@ function LoginScreen({ onLogin }) {
     const tryInit = () => {
       if (window.google?.accounts?.id) {
         google.accounts.id.initialize({
-          client_id: GOOGLE_CLIENT_ID,
-          callback:  handleGoogleCredential,
+          client_id:   GOOGLE_CLIENT_ID,
+          callback:    handleGoogleCredential,
           auto_select: false,
         });
         const el = document.getElementById('gsi-btn-wrap');
-        if (el) google.accounts.id.renderButton(el, {type:'standard',size:'large',width:280,theme:'outline'});
+        if (el) google.accounts.id.renderButton(el, {
+          type: 'standard', size: 'large', shape: 'pill',
+          theme: 'filled_black',
+          width: Math.min(300, window.innerWidth - 80),
+        });
       } else { setTimeout(tryInit, 400); }
     };
     tryInit();
   }, []);
 
   const handleGoogleCredential = async resp => {
-    setLoading(true);
-    setErr('');
+    setLoading(true); setErr('');
     try {
-      // ── 1. ถอดรหัส JWT เพื่อดู email (client-side ยังไม่ verify) ──
-      const [, payload] = resp.credential.split('.');
-      const data = JSON.parse(atob(payload.replace(/-/g,'+').replace(/_/g,'/')));
-
-      // ── 2. ตรวจสอบกับ GAS server (server-side JWT verify) ─────────
       const gasUser = await EOS.loginGAS(resp.credential);
       if (!gasUser) {
-        setErr(`ไม่พบบัญชี ${data.email||''} ในระบบ หรือบัญชีถูกระงับ`);
+        setErr('บัญชีนี้ไม่มีสิทธิ์เข้าใช้งาน กรุณาติดต่อผู้ดูแลระบบ');
         setLoading(false); return;
       }
-
-      // ── 3. เข้าสู่ระบบด้วยข้อมูลจาก GAS (trusted) ──────────────
       doLogin({ email: gasUser.email, name: gasUser.name, role: gasUser.role }, resp.credential);
-    } catch (e) {
+    } catch {
       setErr('ยืนยันตัวตนไม่ได้ กรุณาลองใหม่');
       setLoading(false);
     }
   };
 
-  const lookupEmail = () => {
-    setErr('');
-    const found = EOS.findStaffByEmail(email.trim());
-    if (!found) { setErr('ไม่พบอีเมลนี้ในระบบ'); return; }
-    setStaff(found); setStep(2);
-  };
-
   const doLogin = (s, token) => {
-    // สร้าง session object ครั้งเดียว — ป้องกัน loginAt timestamp ต่างกัน 2 ตัว
     const sess = { ...s, loginAt: EOS.nowISO(), token: token || null };
     EOS.setSession(sess);
     EOS.auditLog('LOGIN', `${s.name} (${s.role})`);
@@ -65,120 +51,171 @@ function LoginScreen({ onLogin }) {
     onLogin(sess);
   };
 
-  const rc = staff ? EOS.ROLE_CFG[staff.role] : null;
+  // ECG waveform path (P-QRS-T complex)
+  const ECG = 'M0,20 L28,20 L32,18 L35,22 L37,20 L42,20 L46,2 L50,38 L54,2 L58,20 L63,20 L66,17 L69,23 L72,20 L120,20';
 
-  // Shared input style
-  const inputStyle = {
-    padding:'10px 13px', border:'1.5px solid #e3e2da', borderRadius:8,
-    fontSize:14, width:'100%', outline:'none', fontFamily:'inherit',
-    background:'#fff', transition:'border-color .12s',
-  };
-  const btnPrimary = {
-    padding:'11px 20px', background:'#0e7a72', color:'#fff', border:'none',
-    borderRadius:8, fontSize:14, fontWeight:600, cursor:'pointer',
-    display:'flex', alignItems:'center', justifyContent:'center', gap:8,
-    transition:'background .12s', width:'100%',
-  };
+  const ROLES = [
+    { label:'แพทย์',   icon:'👨‍⚕️' },
+    { label:'พยาบาล', icon:'👩‍⚕️' },
+    { label:'Admin',   icon:'🛡️'  },
+  ];
 
   return (
     <div style={{
-      position:'fixed', inset:0, zIndex:9999,
-      background:'linear-gradient(135deg, #0e1816 0%, #0e7a72 50%, #0a1512 100%)',
-      display:'flex', alignItems:'center', justifyContent:'center', padding:20,
+      position:'fixed', inset:0, zIndex:9999, overflow:'hidden',
+      background:'radial-gradient(ellipse at 25% 20%, #0f2744 0%, #0a1628 45%, #060e1c 100%)',
+      display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center',
     }}>
-      {/* dot-grid overlay */}
-      <div style={{position:'absolute',inset:0,pointerEvents:'none',backgroundImage:'radial-gradient(rgba(255,255,255,.04) 1px, transparent 1px)',backgroundSize:'28px 28px'}}/>
 
+      {/* ── Keyframes ─────────────────────────────────── */}
+      <style dangerouslySetInnerHTML={{__html:`
+        @keyframes ecg-run {
+          0%   { stroke-dashoffset:300; opacity:0; }
+          8%   { opacity:1; }
+          72%  { opacity:1; stroke-dashoffset:0; }
+          90%  { opacity:0; stroke-dashoffset:0; }
+          100% { opacity:0; stroke-dashoffset:300; }
+        }
+        @keyframes ping {
+          0%   { transform:scale(1); opacity:.7; }
+          100% { transform:scale(2.2); opacity:0; }
+        }
+        @keyframes float-in {
+          from { transform:translateY(32px); opacity:0; }
+          to   { transform:translateY(0);    opacity:1; }
+        }
+        @keyframes glow {
+          0%,100% { opacity:.35; }
+          50%     { opacity:.7;  }
+        }
+        @keyframes spin {
+          to { transform:rotate(360deg); }
+        }
+      `}}/>
+
+      {/* ── Grid overlay ──────────────────────────────── */}
+      <svg style={{position:'absolute',inset:0,width:'100%',height:'100%',opacity:.04,pointerEvents:'none'}} xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <pattern id="lg" width="48" height="48" patternUnits="userSpaceOnUse">
+            <path d="M48 0L0 0 0 48" fill="none" stroke="#93c5fd" strokeWidth=".5"/>
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#lg)"/>
+      </svg>
+
+      {/* ── Ambient glows ─────────────────────────────── */}
+      <div style={{position:'absolute',top:'10%',left:'8%',   width:480,height:480,borderRadius:'50%',background:'radial-gradient(circle,rgba(96,165,250,.08),transparent 70%)',animation:'glow 5s ease-in-out infinite',pointerEvents:'none'}}/>
+      <div style={{position:'absolute',bottom:'12%',right:'6%',width:360,height:360,borderRadius:'50%',background:'radial-gradient(circle,rgba(245,158,11,.07),transparent 70%)',animation:'glow 5s ease-in-out infinite 2.5s',pointerEvents:'none'}}/>
+
+      {/* ── Glass card ────────────────────────────────── */}
       <div style={{
-        display:'flex', borderRadius:18, overflow:'hidden',
-        width:'min(92vw,820px)', position:'relative', zIndex:1,
-        boxShadow:'0 32px 80px rgba(0,0,0,.5), 0 0 0 1px rgba(255,255,255,.06)',
+        animation:'float-in .65s cubic-bezier(.22,1,.36,1) forwards',
+        background:'linear-gradient(145deg,rgba(255,255,255,.08) 0%,rgba(255,255,255,.03) 100%)',
+        backdropFilter:'blur(28px)',
+        border:'1px solid rgba(255,255,255,.11)',
+        borderRadius:30,
+        padding:'38px 34px 34px',
+        width:'min(90vw,370px)',
+        boxShadow:'0 40px 90px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.1)',
+        display:'flex', flexDirection:'column', alignItems:'center',
       }}>
-        {/* ── Brand panel ── */}
+
+        {/* ECG strip */}
+        <div style={{width:'100%',height:42,marginBottom:26,position:'relative',overflow:'hidden'}}>
+          <svg viewBox="0 0 120 40" preserveAspectRatio="none" style={{width:'100%',height:'100%'}}>
+            {/* ghost trail */}
+            <path d={ECG} fill="none" stroke="rgba(245,158,11,.15)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            {/* animated trace */}
+            <path d={ECG} fill="none" stroke="#f59e0b" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
+              strokeDasharray="300"
+              style={{animation:'ecg-run 3.2s ease-in-out infinite'}}/>
+          </svg>
+          {/* live dot */}
+          <div style={{position:'absolute',right:2,top:'50%',transform:'translateY(-50%)'}}>
+            <div style={{width:8,height:8,borderRadius:'50%',background:'#f59e0b',position:'relative'}}>
+              <div style={{position:'absolute',inset:-3,borderRadius:'50%',border:'2px solid #f59e0b',animation:'ping 1.6s ease-out infinite'}}/>
+            </div>
+          </div>
+        </div>
+
+        {/* Icon */}
         <div style={{
-          background:'linear-gradient(160deg,#115e59,#134e4a)',
-          padding:'44px 36px', minWidth:280, color:'#fff',
-          display:'flex', flexDirection:'column', justifyContent:'center',
-          position:'relative', overflow:'hidden',
-          borderRight:'1px solid rgba(255,255,255,.08)',
+          width:66,height:66,borderRadius:20,marginBottom:18,
+          background:'linear-gradient(135deg,rgba(96,165,250,.18),rgba(245,158,11,.14))',
+          border:'1px solid rgba(255,255,255,.14)',
+          display:'flex',alignItems:'center',justifyContent:'center',
+          boxShadow:'0 8px 28px rgba(0,0,0,.35)',
         }}>
-          <div style={{position:'absolute',top:-80,right:-80,width:260,height:260,borderRadius:'50%',background:'radial-gradient(circle,rgba(20,184,166,.18),transparent 70%)'}}/>
-          <div style={{width:60,height:60,borderRadius:16,marginBottom:28,background:'rgba(20,184,166,.2)',border:'1px solid rgba(20,184,166,.35)',display:'flex',alignItems:'center',justifyContent:'center',position:'relative',zIndex:1}}>
-            <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.9)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 3 4 6v6c0 5 3.5 8.5 8 9 4.5-.5 8-4 8-9V6l-8-3z"/>
-              <path d="M9 12h2v-2h2v2h2v2h-2v2h-2v-2H9z"/>
-            </svg>
-          </div>
-          <h1 style={{fontSize:24,fontWeight:700,margin:'0 0 10px',letterSpacing:'-.4px',position:'relative',zIndex:1}}>EOS Smart Alert</h1>
-          <p style={{fontSize:12.5,lineHeight:1.65,color:'rgba(255,255,255,.65)',margin:0,position:'relative',zIndex:1}}>
-            ระบบติดตามและแจ้งเตือน<br/>Early-Onset Sepsis<br/>ทารกแรกเกิด GA ≥ 34 สัปดาห์
-          </p>
-          <div style={{display:'flex',gap:6,marginTop:22,flexWrap:'wrap',position:'relative',zIndex:1}}>
-            {['NICU','v3.0 React','จุฬาลงกรณ์'].map(t=>(
-              <span key={t} style={{padding:'3px 10px',borderRadius:999,fontSize:10,fontWeight:600,background:'rgba(255,255,255,.1)',border:'1px solid rgba(255,255,255,.12)',color:'rgba(255,255,255,.8)'}}>{t}</span>
-            ))}
-          </div>
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.92)" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 3 4 6v6c0 5 3.5 8.5 8 9 4.5-.5 8-4 8-9V6l-8-3z"/>
+            <path d="M9 12h2v-2h2v2h2v2h-2v2h-2v-2H9z"/>
+          </svg>
         </div>
 
-        {/* ── Form panel ── */}
-        <div style={{background:'#fff',padding:'44px 36px',flex:1,display:'flex',flexDirection:'column',justifyContent:'center'}}>
-          <h2 style={{fontSize:20,fontWeight:700,marginBottom:5,letterSpacing:'-.3px',color:'#15201d'}}>เข้าสู่ระบบ</h2>
-          <p style={{fontSize:13,color:'#7a857f',marginBottom:26}}>บัญชี Google ที่ลงทะเบียนใน EOS Smart Alert</p>
-
-          {step===1 && (
-            <div style={{display:'flex',flexDirection:'column',gap:14}}>
-              {/* Google Sign-In */}
-              <div id="gsi-btn-wrap" style={{display:'flex',justifyContent:'center',minHeight:44}}/>
-
-              <div style={{display:'flex',alignItems:'center',gap:10,color:'#a8b0a9',fontSize:11}}>
-                <div style={{flex:1,height:1,background:'#e3e2da'}}/><span>หรือ</span><div style={{flex:1,height:1,background:'#e3e2da'}}/>
-              </div>
-
-              <div style={{display:'flex',flexDirection:'column',gap:5}}>
-                <label style={{fontSize:11,fontWeight:700,textTransform:'uppercase',letterSpacing:'.6px',color:'#3a4945'}}>อีเมล</label>
-                <input type="email" value={email} placeholder="name@gmail.com"
-                  onChange={e=>setEmail(e.target.value)}
-                  onKeyDown={e=>e.key==='Enter'&&lookupEmail()}
-                  style={inputStyle}
-                  onFocus={e=>e.target.style.borderColor='#0e7a72'}
-                  onBlur={e =>e.target.style.borderColor='#e3e2da'}
-                />
-              </div>
-              <button onClick={lookupEmail} style={btnPrimary}
-                onMouseOver={e=>e.currentTarget.style.background='#0a5d56'}
-                onMouseOut={e =>e.currentTarget.style.background='#0e7a72'}>
-                เข้าสู่ระบบ
-                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 3l5 5-5 5"/></svg>
-              </button>
-              {err && <div style={{color:'#c8102e',fontSize:12,textAlign:'center',fontWeight:500}}>{err}</div>}
-            </div>
-          )}
-
-          {step===2 && staff && rc && (
-            <div style={{display:'flex',flexDirection:'column',gap:14}}>
-              <button onClick={()=>{setStep(1);setStaff(null);setErr('');}} style={{background:'none',border:'none',color:'#7a857f',fontSize:12,cursor:'pointer',padding:'6px 0',display:'flex',alignItems:'center',gap:6,fontWeight:500}}>
-                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10 3L5 8l5 5"/></svg>
-                เปลี่ยนบัญชี
-              </button>
-
-              <div style={{background:'#f1fdf9',border:'1.5px solid #b9d7be',borderRadius:10,padding:'14px 16px',display:'flex',alignItems:'center',gap:14}}>
-                <div style={{width:44,height:44,borderRadius:10,background:rc.bg,display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,flexShrink:0}}>{rc.icon}</div>
-                <div>
-                  <div style={{fontWeight:700,fontSize:14,color:'#15201d'}}>{staff.name}</div>
-                  <span style={{display:'inline-block',marginTop:4,padding:'2px 9px',borderRadius:999,fontSize:11,fontWeight:600,background:rc.bg,color:rc.color}}>{rc.label}</span>
-                </div>
-              </div>
-
-              <button onClick={()=>doLogin(staff)} disabled={loading}
-                style={{...btnPrimary, opacity:loading?.7:1}}
-                onMouseOver={e=>e.currentTarget.style.background='#0a5d56'}
-                onMouseOut={e =>e.currentTarget.style.background='#0e7a72'}>
-                {loading ? 'กำลังเข้าสู่ระบบ…' : <>ยืนยันเข้าสู่ระบบ <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 3l5 5-5 5"/></svg></>}
-              </button>
-              {err && <div style={{color:'#c8102e',fontSize:12,textAlign:'center',fontWeight:500}}>{err}</div>}
-            </div>
-          )}
+        {/* Title */}
+        <div style={{fontSize:23,fontWeight:700,color:'#fff',letterSpacing:'-.5px',marginBottom:6,textAlign:'center'}}>
+          EOS Smart Alert
         </div>
+        <div style={{fontSize:12,color:'rgba(255,255,255,.42)',marginBottom:8,textAlign:'center',lineHeight:1.65}}>
+          ระบบติดตาม Early-Onset Sepsis
+        </div>
+        <div style={{fontSize:11,color:'rgba(245,158,11,.65)',marginBottom:28,textAlign:'center',fontWeight:500,letterSpacing:.3}}>
+          KCMH NICU · GA ≥ 34 สัปดาห์
+        </div>
+
+        {/* Role chips */}
+        <div style={{display:'flex',gap:7,marginBottom:30}}>
+          {ROLES.map(r => (
+            <div key={r.label} style={{
+              display:'flex',alignItems:'center',gap:5,
+              padding:'5px 11px',borderRadius:999,
+              background:'rgba(255,255,255,.06)',
+              border:'1px solid rgba(255,255,255,.09)',
+              fontSize:11,color:'rgba(255,255,255,.55)',
+            }}>
+              <span style={{fontSize:13}}>{r.icon}</span>{r.label}
+            </div>
+          ))}
+        </div>
+
+        {/* Divider */}
+        <div style={{width:'100%',height:1,background:'linear-gradient(90deg,transparent,rgba(255,255,255,.1),transparent)',marginBottom:24}}/>
+
+        {/* Google Sign-In */}
+        <div style={{width:'100%',marginBottom:4}}>
+          <div id="gsi-btn-wrap" style={{
+            display:'flex',justifyContent:'center',minHeight:44,
+            opacity: loading ? 0.4 : 1,
+            pointerEvents: loading ? 'none' : 'auto',
+            transition:'opacity .2s',
+          }}/>
+        </div>
+
+        {/* Loading */}
+        {loading && (
+          <div style={{display:'flex',alignItems:'center',gap:8,color:'rgba(255,255,255,.45)',fontSize:12,marginTop:12}}>
+            <div style={{width:14,height:14,border:'2px solid rgba(245,158,11,.3)',borderTopColor:'#f59e0b',borderRadius:'50%',animation:'spin .75s linear infinite'}}/>
+            กำลังยืนยันตัวตน…
+          </div>
+        )}
+
+        {/* Error */}
+        {err && (
+          <div style={{
+            marginTop:14,padding:'10px 14px',borderRadius:12,width:'100%',
+            background:'rgba(239,68,68,.1)',border:'1px solid rgba(239,68,68,.22)',
+            color:'#fca5a5',fontSize:12,textAlign:'center',lineHeight:1.55,
+          }}>
+            ⚠️ {err}
+          </div>
+        )}
+      </div>
+
+      {/* Footer */}
+      <div style={{marginTop:26,display:'flex',gap:18,fontSize:10.5,color:'rgba(255,255,255,.2)',letterSpacing:.3}}>
+        {['EOS v3.0 React','IRB Approved','จุฬาลงกรณ์ 2026'].map(t=>(
+          <span key={t}>{t}</span>
+        ))}
       </div>
     </div>
   );
