@@ -26,10 +26,9 @@ const EOS = window.EOS = (() => {
     ALLOW_DEMO_MODE: false,
   };
 
-  // เพิ่ม staff ได้ที่นี่ หรือผ่าน Admin > จัดการผู้ใช้
-  const STAFF_DB = {
-    'praew.tvl@gmail.com': {name:'พญ.พีรพร', role:'admin'},
-  };
+  // Staff managed via GAS Staff sheet — authorization is server-side (verifyToken)
+  // This local DB is fallback only; leave empty for production
+  const STAFF_DB = {};
 
   const ROLE_CFG = {
     doctor: {label:'แพทย์',    icon:'👨‍⚕️',bg:'#eff6ff',color:'#1e40af',canApproveAbx:true, canDischarge:true, canConfig:false,canManageUsers:false},
