@@ -86,7 +86,13 @@ function App() {
 
   // ── Handlers ──────────────────────────────────
   const goPatient = hn => { setOpenHn(hn); setView('patient'); };
-  const doLogout  = () => { EOS.auditLog('LOGOUT', session.name); EOS.clearSession(); setSession(null); };
+  const doLogout  = () => {
+    EOS.auditLog('LOGOUT', session.name);
+    EOS.clearSession();
+    // Reset Google Sign-In so the button re-renders correctly on next login
+    try { if (window.google?.accounts?.id) google.accounts.id.disableAutoSelect(); } catch {}
+    setSession(null);
+  };
 
   const showPin = msg => new Promise(resolve => setPinModal({ msg, resolve }));
 

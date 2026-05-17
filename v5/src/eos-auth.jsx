@@ -11,22 +11,40 @@ function LoginScreen({ onLogin }) {
   useEffect(() => {
     const { GOOGLE_CLIENT_ID } = EOS.AUTH;
     if (!GOOGLE_CLIENT_ID) return;
+
+    let attempts = 0;
     const tryInit = () => {
-      if (window.google?.accounts?.id) {
-        google.accounts.id.initialize({
-          client_id:   GOOGLE_CLIENT_ID,
-          callback:    handleGoogleCredential,
-          auto_select: false,
-        });
+      attempts++;
+      if (attempts > 20) return; // หยุดหลังจาก 8 วินาที
+
+      if (!window.google?.accounts?.id) {
+        setTimeout(tryInit, 400); return;
+      }
+
+      // Re-initialize ทุกครั้ง (สำคัญ: ต้องทำใหม่หลัง logout)
+      google.accounts.id.initialize({
+        client_id:   GOOGLE_CLIENT_ID,
+        callback:    handleGoogleCredential,
+        auto_select: false,
+      });
+
+      // รอให้ DOM element พร้อม
+      const render = () => {
         const el = document.getElementById('gsi-btn-wrap');
-        if (el) google.accounts.id.renderButton(el, {
+        if (!el) { setTimeout(render, 100); return; }
+        // ล้าง content เก่าก่อน render ใหม่
+        el.innerHTML = '';
+        google.accounts.id.renderButton(el, {
           type:'standard', size:'large', shape:'pill',
           theme:'filled_black',
           width: Math.min(300, window.innerWidth - 80),
         });
-      } else { setTimeout(tryInit, 400); }
+      };
+      render();
     };
-    tryInit();
+
+    // delay เล็กน้อยให้แน่ใจว่า DOM mount แล้ว
+    setTimeout(tryInit, 50);
   }, []);
 
   const handleGoogleCredential = async resp => {
