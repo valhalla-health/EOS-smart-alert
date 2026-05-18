@@ -155,6 +155,70 @@ function Dashboard({ patients, vitals, onOpenPatient, onGo }) {
 }
 
 // ══════════════════════════════════════════════════
+// RISK TREND CHART
+// ══════════════════════════════════════════════════
+
+function RiskTrendChart({ patient: p, vitals, birthRisk }) {
+  const all = vitalsFor(p.hn, vitals);
+  if (all.length === 0) return null;
+
+  // Clinical category from vitals → risk multiplier
+  const catMult = v => {
+    const issues = evalVitals(v);
+    if (issues.some(i=>i.sev==='red')) return {mult:6.5, label:'Illness',  color:'var(--red)'};
+    if (issues.some(i=>i.sev==='amber')) return {mult:2.2, label:'Equivocal',color:'var(--amber)'};
+    return {mult:0.45, label:'Well',     color:'var(--teal)'};
+  };
+
+  const pts = [
+    { label:'Birth', risk:birthRisk, color:'var(--text-2)' },
+    ...all.map(v => { const c=catMult(v); return { label:v.ageHr.replace(' hr','h'), risk:Math.round(birthRisk*c.mult*100)/100, color:c.color, cat:c.label }; }),
+  ];
+
+  const W=280, H=72, PAD=28;
+  const maxR = Math.max(...pts.map(p=>p.risk), 1.5);
+  const x = i => PAD + (i/(pts.length-1||1))*(W-PAD*2);
+  const y = r => H-10 - Math.min(1,r/maxR)*(H-18);
+
+  return (
+    <div className="card mb-12">
+      <div className="card-head">
+        <span className="card-title">EOS Risk Trend</span>
+        <span style={{marginLeft:'auto',fontSize:11,color:'var(--text-3)'}}>per 1,000 live births — by clinical presentation</span>
+      </div>
+      <svg viewBox={`0 0 ${W} ${H}`} style={{width:'100%',height:H,overflow:'visible'}}>
+        {/* Reference lines */}
+        {[0.5,1,3].map(r=>{
+          const yy=y(r); if(yy<4||yy>H-4) return null;
+          return <g key={r}>
+            <line x1={PAD} y1={yy} x2={W-PAD} y2={yy} stroke="var(--border)" strokeWidth="0.7" strokeDasharray="3,4"/>
+            <text x={PAD-3} y={yy+3} textAnchor="end" fontSize="7.5" fill="var(--text-3)">{r}</text>
+          </g>;
+        })}
+        {/* Connecting line */}
+        {pts.length>1 && <polyline points={pts.map((_,i)=>`${x(i)},${y(pts[i].risk)}`).join(' ')}
+          fill="none" stroke="var(--border-2)" strokeWidth="1.2" strokeLinejoin="round"/>}
+        {/* Dots + labels */}
+        {pts.map((pt,i)=>(
+          <g key={i}>
+            <circle cx={x(i)} cy={y(pt.risk)} r="5" fill={pt.color} stroke="var(--surface)" strokeWidth="1.5"/>
+            <text x={x(i)} y={H+2} textAnchor="middle" fontSize="8" fill="var(--text-3)">{pt.label}</text>
+            <text x={x(i)} y={y(pt.risk)-7} textAnchor="middle" fontSize="7.5" fill={pt.color} fontWeight="700">
+              {pt.risk<0.1?pt.risk.toFixed(3):pt.risk.toFixed(2)}
+            </text>
+          </g>
+        ))}
+      </svg>
+      <div style={{display:'flex',gap:12,marginTop:4,fontSize:10.5,color:'var(--text-3)'}}>
+        <span style={{color:'var(--red)'}}>● Illness ×6.5</span>
+        <span style={{color:'var(--amber)'}}>● Equivocal ×2.2</span>
+        <span style={{color:'var(--teal)'}}>● Well ×0.45</span>
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════
 // PATIENT DETAIL
 // ══════════════════════════════════════════════════
 
@@ -165,8 +229,24 @@ function PatientDetail({ patient: p, vitals, onBack, onAddPE, onDischarge, sessi
   const hasAlert = lastIssues.some(i => i.sev === 'red');
   const st = tpStatus(p, vitals);
   const rc = EOS.ROLE_CFG[session.role];
-  const intakeCalc = calcEOSRisk({ ga:p.ga, romHours:p.intake?.rom||0, maternalTemp:p.intake?.fever||37, gbsStatus:p.intake?.gbs||'unk', iapStatus:p.intake?.iap||'none' });
+
+  // Birth risk — new signature
+  const intakeCalc = calcEOSRisk({
+    gaWeeks: Math.floor(p.ga||39), gaDays: Math.round(((p.ga||39)%1)*7),
+    romHours: p.intake?.rom||0, maternalTempC: p.intake?.fever||37,
+    gbsStatus: p.intake?.gbs||'unk',
+    iapType: p.intake?.iap==='adequate'?'broad_4plus': p.intake?.iap==='partial'?'broad_2to4':'none',
+    incidence: 0.5, version: '2024',
+  });
   const intakeCat = riskCategory(intakeCalc);
+
+  // ABX timer (find last approved continue decision)
+  const abxEntry = all.filter(v=>v.abxApproved&&v.abxDecision==='continue').slice(-1)[0];
+  const abxStartedAt = abxEntry?.abxAt || null;
+  const abxElapsedHr = abxStartedAt ? (Date.now()-new Date(abxStartedAt))/3600000 : 0;
+  const abxRemainingHr = Math.max(0, 48 - abxElapsedHr);
+  const needReCulture = abxStartedAt && abxElapsedHr >= 36 &&
+    !all.some(v => v.cultureStatus==='negative'||v.cultureStatus==='positive');
 
   return (
     <div className="panel">
@@ -263,6 +343,36 @@ function PatientDetail({ patient: p, vitals, onBack, onAddPE, onDischarge, sessi
             )}
           </div>
 
+          {/* ABX Timer banner */}
+          {abxStartedAt && (
+            <div className={`banner ${abxRemainingHr <= 6 ? 'red' : 'amber'} mb-12`}>
+              <Icon name="abx"/>
+              <div style={{flex:1}}>
+                <div className="title">ABX Duration Timer — {abxElapsedHr.toFixed(1)} hr ที่ผ่านมา</div>
+                <div style={{marginTop:4}}>
+                  {abxRemainingHr > 0
+                    ? <>Recommended stop ใน <strong>{abxRemainingHr.toFixed(1)} hr</strong> (48 hr empirical course)</>
+                    : <strong>⚠️ ครบ 48 hr — พิจารณา de-escalate หรือ stop ABX</strong>
+                  }
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Re-culture prompt */}
+          {needReCulture && (
+            <div className="banner amber mb-12">
+              <Icon name="warn"/>
+              <div style={{flex:1}}>
+                <div className="title">Re-culture Check — ABX ≥ 36 hr</div>
+                <div style={{marginTop:4}}>ยังไม่มีผล blood culture — กรุณาบันทึกผลใน Serial PE ถัดไป</div>
+              </div>
+            </div>
+          )}
+
+          {/* Risk Trend Chart */}
+          <RiskTrendChart patient={p} vitals={vitals} birthRisk={intakeCalc}/>
+
           <div className="card">
             <div className="card-head">
               <span className="card-title">Serial PE Timeline</span>
@@ -307,6 +417,16 @@ function PatientDetail({ patient: p, vitals, onBack, onAddPE, onDischarge, sessi
                             </div>
                           )}
                           {rec.management && <div style={{fontSize:11,color:'var(--text-2)',marginTop:4}}>Plan: {rec.management}</div>}
+                          {/* Lab results inline */}
+                          {(rec.crp||rec.wbc||rec.anc||rec.cultureStatus==='pending'||rec.cultureStatus==='negative'||rec.cultureStatus==='positive') && (
+                            <div style={{display:'flex',gap:10,marginTop:6,flexWrap:'wrap',fontSize:11}}>
+                              {rec.crp!=null&&<span className={`badge badge-${+rec.crp>=10?'red':'grey'}`}>CRP {rec.crp} mg/L</span>}
+                              {rec.wbc!=null&&<span className={`badge badge-${(+rec.wbc<5000||+rec.wbc>30000)?'amber':'grey'}`}>WBC {(+rec.wbc).toLocaleString()}</span>}
+                              {rec.anc!=null&&<span className={`badge badge-${+rec.anc<1000?'red':'grey'}`}>ANC {(+rec.anc).toLocaleString()}</span>}
+                              {rec.itRatio!=null&&<span className={`badge badge-${+rec.itRatio>=0.2?'red':'grey'}`}>I:T {rec.itRatio}</span>}
+                              {rec.cultureStatus&&rec.cultureStatus!=='not_sent'&&<span className={`badge badge-${rec.cultureStatus==='positive'?'red':rec.cultureStatus==='negative'?'green':'amber'}`}>Culture: {rec.cultureStatus}</span>}
+                            </div>
+                          )}
                         </>
                       ) : tp===st.tp ? (
                         <div className="summary muted">▸ ถัดไป — <button className="btn btn-primary btn-xs" onClick={()=>onAddPE(p)} style={{marginLeft:6}}>บันทึกเดี๋ยวนี้</button></div>
@@ -494,14 +614,14 @@ function Triage({ onCreated, onCancel }) {
 function PEForm({ patient: p, vitals, onSave, onClose, session }) {
   const tp = nextTP(p.hn, vitals) || '44 hr';
   const isABX = EOS.ABX_TPS.has(tp);
-  const [v, setV] = useState({ wellbeing:'yes', skin:'Rosy', T:'', P:'', R:'', SpO2:'', BP:'', rd:[], management:'' });
+  const [v, setV] = useState({ wellbeing:'yes', skin:'Rosy', T:'', P:'', R:'', SpO2:'', BP:'', rd:[], management:'', crp:'', wbc:'', anc:'', itRatio:'', cultureStatus:'not_sent' });
   const upd = (k,val) => setV(s=>({...s,[k]:val}));
   const toggleRD = key => setV(s=>({...s,rd:s.rd.includes(key)?s.rd.filter(x=>x!==key):[...s.rd,key]}));
   const issues = useMemo(() => evalVitals({...v,T:v.T===''?null:+v.T,P:v.P===''?null:+v.P,R:v.R===''?null:+v.R,SpO2:v.SpO2===''?null:+v.SpO2}), [v]);
   const hasRed = issues.some(i=>i.sev==='red');
 
   const handleSave = () => {
-    const entry = { hn:p.hn, ageHr:tp, ts:EOS.nowISO(), wellbeing:v.wellbeing, skin:v.skin, T:v.T===''?null:+v.T, P:v.P===''?null:+v.P, R:v.R===''?null:+v.R, SpO2:v.SpO2===''?null:+v.SpO2, BP:v.BP, rd:v.rd, staff:session.name, management:v.management, abxApproved:false, synced:false };
+    const entry = { hn:p.hn, ageHr:tp, ts:EOS.nowISO(), wellbeing:v.wellbeing, skin:v.skin, T:v.T===''?null:+v.T, P:v.P===''?null:+v.P, R:v.R===''?null:+v.R, SpO2:v.SpO2===''?null:+v.SpO2, BP:v.BP, rd:v.rd, staff:session.name, management:v.management, crp:v.crp===''?null:+v.crp, wbc:v.wbc===''?null:+v.wbc, anc:v.anc===''?null:+v.anc, itRatio:v.itRatio===''?null:+v.itRatio, cultureStatus:v.cultureStatus, abxApproved:false, synced:false };
     if (hasRed) EOS.auditLog('ABNORMAL_VITALS',`HN:${EOS.maskHn(p.hn)} ${tp}`);
     else EOS.auditLog('VITALS_SAVE',`HN:${EOS.maskHn(p.hn)} ${tp}`);
     onSave(entry); // syncRow handled in handleSavePE (App) — do NOT call here to avoid duplicate GAS posts
@@ -538,7 +658,41 @@ function PEForm({ patient: p, vitals, onSave, onClose, session }) {
           <h3 className="mt-16"><span className="num">3</span>Respiratory distress</h3>
           <div className="chip-group">{EOS.RD_OPTS.map(rd=><button key={rd} className={`chip danger ${v.rd.includes(rd)?'active':''}`} onClick={()=>toggleRD(rd)}>{rd}</button>)}</div>
 
-          <h3 className="mt-16"><span className="num">4</span>Management / Plan</h3>
+          <h3 className="mt-16"><span className="num">4</span>Lab Results <span style={{fontWeight:400,fontSize:11,color:'var(--text-3)'}}>— optional</span></h3>
+          <div className="row-2 mt-8">
+            <div>
+              <label className="lbl">CRP</label>
+              <div className={`vital-input mt-8${v.crp&&+v.crp>=10?' flag':''}`}><input type="number" step="0.1" min="0" value={v.crp} onChange={e=>upd('crp',e.target.value)} placeholder="—"/><span className="unit">mg/L</span></div>
+              <div className={`vital-range${v.crp&&+v.crp>=10?' flag':''}`}>Elevated: ≥ 10 mg/L</div>
+            </div>
+            <div>
+              <label className="lbl">WBC</label>
+              <div className={`vital-input mt-8${v.wbc&&(+v.wbc<5000||+v.wbc>30000)?' flag':''}`}><input type="number" step="100" min="0" value={v.wbc} onChange={e=>upd('wbc',e.target.value)} placeholder="—"/><span className="unit">/μL</span></div>
+              <div className={`vital-range${v.wbc&&(+v.wbc<5000||+v.wbc>30000)?' flag':''}`}>Normal: 5,000–30,000</div>
+            </div>
+          </div>
+          <div className="row-2 mt-8">
+            <div>
+              <label className="lbl">ANC (Absolute Neutrophil Count)</label>
+              <div className={`vital-input mt-8${v.anc&&+v.anc<1000?' flag':''}`}><input type="number" step="100" min="0" value={v.anc} onChange={e=>upd('anc',e.target.value)} placeholder="—"/><span className="unit">/μL</span></div>
+              <div className={`vital-range${v.anc&&+v.anc<1000?' flag':''}`}>Low: &lt; 1,000</div>
+            </div>
+            <div>
+              <label className="lbl">I:T Ratio</label>
+              <div className={`vital-input mt-8${v.itRatio&&+v.itRatio>=0.2?' flag':''}`}><input type="number" step="0.01" min="0" max="1" value={v.itRatio} onChange={e=>upd('itRatio',e.target.value)} placeholder="—"/><span className="unit">ratio</span></div>
+              <div className={`vital-range${v.itRatio&&+v.itRatio>=0.2?' flag':''}`}>Elevated: ≥ 0.20</div>
+            </div>
+          </div>
+          <div className="mt-8">
+            <label className="lbl">Blood Culture</label>
+            <div className="chip-group mt-8">
+              {[{k:'not_sent',l:'ไม่ได้เจาะ'},{k:'pending',l:'Pending'},{k:'negative',l:'Negative'},{k:'positive',l:'Positive'}].map(o=>(
+                <button key={o.k} className={`chip ${o.k==='positive'?'danger':o.k==='pending'?'warn':o.k==='negative'?'':''} ${v.cultureStatus===o.k?'active':''}`} onClick={()=>upd('cultureStatus',o.k)}>{o.l}</button>
+              ))}
+            </div>
+          </div>
+
+          <h3 className="mt-16"><span className="num">5</span>Management / Plan</h3>
           <div className="field"><textarea rows={2} value={v.management} onChange={e=>upd('management',e.target.value)} placeholder="บันทึกการรักษา / แผนการดูแล..."/></div>
         </div>
 

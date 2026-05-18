@@ -129,7 +129,12 @@ function App() {
     const txt = await showPin(`${label}\n${patientName||''}\nพิมพ์ "ยืนยัน" เพื่อยืนยัน`);
     setPinModal(null);
     if ((txt||'').trim() !== 'ยืนยัน') return;
-    setVitals(arr => arr.map(v => v.ts===ts ? {...v, abxApproved:true, abxDecision:decision, abxBy:session.name, abxAt:EOS.nowISO()} : v));
+    const now = EOS.nowISO();
+    setVitals(arr => arr.map(v => v.ts===ts ? {
+      ...v, abxApproved:true, abxDecision:decision,
+      abxBy:session.name, abxAt:now,
+      abxStartAt: decision==='continue' ? now : null,
+    } : v));
     EOS.auditLog('ABX_DECISION', `${decision.toUpperCase()} by ${session.name} ts:${ts}`);
   };
 
