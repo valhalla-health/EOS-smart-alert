@@ -559,38 +559,235 @@ function PEForm({ patient: p, vitals, onSave, onClose, session }) {
 // ══════════════════════════════════════════════════
 
 function Calculator() {
-  const [p, setP] = useState({ ga:39, romHours:12, maternalTemp:37.5, gbsStatus:'unk', iapStatus:'none' });
+  const { useState, useMemo } = React;
+  const [ver,  setVer]  = useState('2024');
+  const [unit, setUnit] = useState('C'); // temp unit
+  const [p, setP] = useState({
+    gaWeeks:39, gaDays:0,
+    romHours:12,
+    maternalTempC:37.0,
+    gbsStatus:'unk',
+    iapType:'none',
+    incidence:0.5,
+  });
+  const [showGuide, setShowGuide] = useState(false);
+
   const upd = (k,v) => setP(s=>({...s,[k]:v}));
-  const risk = calcEOSRisk(p);
-  const cat = riskCategory(risk);
-  const pct = Math.min(1, risk/4);
-  const gc = cat.badge==='red'?'var(--red)':cat.badge==='amber'?'var(--amber)':'var(--teal)';
+
+  // °F ↔ °C conversion helpers
+  const toC = f => Math.round((f - 32) / 1.8 * 10) / 10;
+  const toF = c => Math.round((c * 1.8 + 32) * 10) / 10;
+  const dispTemp = p.maternalTempC;
+  const dispTempF = toF(dispTemp);
+
+  const birthRisk = useMemo(() => calcEOSRisk({...p, version:ver}), [p, ver]);
+  const table     = useMemo(() => EOS.calcEOSTable(birthRisk), [birthRisk]);
+  const cat       = riskCategory(birthRisk);
+
+  const pct = Math.min(1, birthRisk / 5);
+  const gc  = birthRisk >= 3 ? 'var(--red)' : birthRisk >= 1 ? 'var(--amber)' : 'var(--teal)';
+
+  const IAP_OPTIONS = [
+    { k:'broad_4plus', l:'Broad spectrum antibiotics > 4 hr before delivery' },
+    { k:'broad_2to4',  l:'Broad spectrum antibiotics 2–3.9 hr before delivery' },
+    { k:'gbs_2plus',   l:'GBS-specific antibiotics > 2 hr before delivery' },
+    { k:'none',        l:'No antibiotics or any antibiotics < 2 hr before delivery' },
+  ];
+
+  const badgeColor = b => b==='red'?'var(--red)':b==='amber'?'var(--amber)':'var(--green)';
+
   return (
     <div className="panel">
-      <div className="page-head"><div><h1>EOS Risk Calculator</h1><div className="sub">Kaiser Permanente neonatal EOS calculator (Puopolo 2011)</div></div></div>
-      <div className="calc-grid">
-        <div className="card">
-          <div className="card-head"><span className="card-title">Input Parameters</span></div>
-          <div className="row-2">
-            <div><label className="lbl">Gestational Age</label><div className="vital-input mt-8"><input type="number" step="0.1" min="34" max="42" value={p.ga} onChange={e=>upd('ga',+e.target.value)} className="mono"/><span className="unit">wk</span></div><div className="vital-range">≥ 34 wk</div></div>
-            <div><label className="lbl">Maternal Temp (max)</label><div className="vital-input mt-8"><input type="number" step="0.1" value={p.maternalTemp} onChange={e=>upd('maternalTemp',+e.target.value)} className="mono"/><span className="unit">°C</span></div><div className="vital-range">≥ 38°C เพิ่มความเสี่ยง</div></div>
-          </div>
-          <div className="row-2 mt-12">
-            <div><label className="lbl">ROM Duration</label><div className="vital-input mt-8"><input type="number" value={p.romHours} onChange={e=>upd('romHours',+e.target.value)} className="mono"/><span className="unit">hr</span></div><div className="vital-range">≥ 18 hr = prolonged</div></div>
-            <div><label className="lbl">GBS Status</label><select className="input mt-8" value={p.gbsStatus} onChange={e=>upd('gbsStatus',e.target.value)}><option value="unk">Unknown</option><option value="pos">Positive</option><option value="neg">Negative</option></select></div>
-          </div>
-          <div className="mt-12"><label className="lbl">Intrapartum Antibiotics</label><div className="chip-group mt-8">{[{k:'adequate',l:'Adequate ≥4hr'},{k:'partial',l:'Partial'},{k:'none',l:'None'}].map(o=><button key={o.k} className={`chip ${p.iapStatus===o.k?'active':''}`} onClick={()=>upd('iapStatus',o.k)}>{o.l}</button>)}</div></div>
-          <div className="divider mt-16"/>
-          <div style={{fontSize:12,color:'var(--text-3)',lineHeight:1.6}}><strong style={{color:'var(--text-2)'}}>หมายเหตุ:</strong> จำนวนทารกเกิด EOS ต่อ 1,000 ทารกเกิดมีชีพ (ก่อนพิจารณาอาการทางคลินิก)</div>
-        </div>
+      <div className="page-head">
         <div>
-          <div className="gauge-card">
-            <div className="gauge"><svg viewBox="0 0 200 110"><path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="var(--surface-3)" strokeWidth="14" strokeLinecap="round"/><path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke={gc} strokeWidth="14" strokeLinecap="round" strokeDasharray={`${pct*251} 251`}/><circle cx={20+80-80*Math.cos(Math.PI*pct)} cy={100-80*Math.sin(Math.PI*pct)} r="6" fill={gc} stroke="var(--surface)" strokeWidth="2"/></svg></div>
-            <div className="gauge-num">{risk<0.01?risk.toFixed(3):risk.toFixed(2)}</div>
-            <div className="unit-line">ต่อ 1,000 ทารกเกิดมีชีพ</div>
-            <div className={`verdict-pill badge badge-${cat.badge}`} style={{marginTop:14}}>{cat.label} · {cat.en}</div>
+          <h1>EOS Risk Calculator</h1>
+          <div className="sub">Kaiser Permanente Neonatal EOS Calculator — Updated 2024</div>
+        </div>
+      </div>
+
+      {/* Version selector */}
+      <div className="card mb-14" style={{padding:'14px 18px'}}>
+        <div className="lbl mb-8">Calculator Version</div>
+        <div style={{display:'flex',gap:20}}>
+          {[{k:'2024',l:'Updated (2024) — Universal GBS Screening'},{k:'2017',l:'Original (2017) — No Universal GBS Screening'}].map(v=>(
+            <label key={v.k} style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',fontSize:13,color:'var(--text-2)',fontWeight:ver===v.k?700:400}}>
+              <input type="radio" name="ver" checked={ver===v.k} onChange={()=>setVer(v.k)} style={{accentColor:'var(--teal)',width:16,height:16}}/>
+              {v.l}
+            </label>
+          ))}
+        </div>
+      </div>
+
+      <div className="calc-grid">
+        {/* ── LEFT: Inputs ── */}
+        <div className="card">
+          <div className="card-head"><span className="card-title">Please enter details below</span></div>
+
+          {/* Incidence */}
+          <div className="field mt-8">
+            <label className="lbl">Incidence of Early-Onset Sepsis (per 1,000 live births)</label>
+            <div className="vital-input mt-6">
+              <input type="number" step="0.1" min="0.1" max="10" value={p.incidence} onChange={e=>upd('incidence',+e.target.value)} className="mono"/>
+              <span className="unit">/ 1,000</span>
+            </div>
+            <div className="vital-range">ค่าเฉลี่ย KCMH / KP reference: 0.5–0.8</div>
           </div>
-          <div className="card mt-12"><div className="card-title mb-8">คำแนะนำ</div><div style={{fontWeight:700,fontSize:14,marginBottom:8}}>{cat.recommend}</div><div style={{fontSize:12.5,color:'var(--text-2)',lineHeight:1.55}}>{cat.detail}</div></div>
+
+          {/* GA */}
+          <div className="field mt-12">
+            <label className="lbl">Gestational Age</label>
+            <div style={{display:'flex',gap:8,marginTop:6}}>
+              <div className="vital-input" style={{flex:1}}><input type="number" min="34" max="43" value={p.gaWeeks} onChange={e=>upd('gaWeeks',+e.target.value)} className="mono"/><span className="unit">wk</span></div>
+              <div className="vital-input" style={{flex:1}}><input type="number" min="0" max="6" value={p.gaDays} onChange={e=>upd('gaDays',+e.target.value)} className="mono"/><span className="unit">days</span></div>
+            </div>
+            <div className="vital-range">Protocol สำหรับ GA ≥ 34 สัปดาห์</div>
+          </div>
+
+          {/* Maternal temp + unit */}
+          <div className="field mt-12">
+            <label className="lbl">Highest Maternal Antepartum Temperature</label>
+            <div style={{display:'flex',gap:8,marginTop:6,alignItems:'center'}}>
+              <div className="vital-input" style={{flex:1}}>
+                <input type="number" step="0.1"
+                  value={unit==='C'?dispTemp:dispTempF}
+                  onChange={e=>upd('maternalTempC', unit==='C'?+e.target.value:toC(+e.target.value))}
+                  className="mono"/>
+                <span className="unit">°{unit}</span>
+              </div>
+              <select className="input" style={{width:90}} value={unit} onChange={e=>setUnit(e.target.value)}>
+                <option value="C">Celsius</option>
+                <option value="F">Fahrenheit</option>
+              </select>
+            </div>
+            <div className="vital-range">
+              {unit==='C'?`≥ 38.0°C = risk ↑  ·  F: ${dispTempF}°F`:`≥ 100.4°F = risk ↑  ·  C: ${dispTemp}°C`}
+            </div>
+          </div>
+
+          {/* ROM */}
+          <div className="field mt-12">
+            <label className="lbl">Rupture of Membranes (ROM)</label>
+            <div className="vital-input mt-6"><input type="number" min="0" value={p.romHours} onChange={e=>upd('romHours',+e.target.value)} className="mono"/><span className="unit">hours</span></div>
+            <div className="vital-range">≥ 18 hr = prolonged ROM</div>
+          </div>
+
+          {/* GBS */}
+          <div className="field mt-12">
+            <label className="lbl">Maternal GBS Status</label>
+            <div style={{display:'flex',flexDirection:'column',gap:8,marginTop:8}}>
+              {[{k:'neg',l:'Negative'},{k:'pos',l:'Positive'},{k:'unk',l:'Unknown'}].map(o=>(
+                <label key={o.k} style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',fontSize:13,color:'var(--text-2)'}}>
+                  <input type="radio" name="gbs" checked={p.gbsStatus===o.k} onChange={()=>upd('gbsStatus',o.k)} style={{accentColor:'var(--teal)',width:15,height:15}}/>
+                  {o.l}
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {/* IAP */}
+          <div className="field mt-12">
+            <label className="lbl">Type of Intrapartum Antibiotics</label>
+            <div style={{display:'flex',flexDirection:'column',gap:8,marginTop:8}}>
+              {IAP_OPTIONS.map(o=>(
+                <label key={o.k} style={{display:'flex',alignItems:'flex-start',gap:8,cursor:'pointer',fontSize:13,color:'var(--text-2)',lineHeight:1.4}}>
+                  <input type="radio" name="iap" checked={p.iapType===o.k} onChange={()=>upd('iapType',o.k)} style={{accentColor:'var(--teal)',width:15,height:15,marginTop:2,flexShrink:0}}/>
+                  {o.l}
+                </label>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* ── RIGHT: Results ── */}
+        <div>
+          {/* Gauge */}
+          <div className="gauge-card">
+            <div className="lbl mb-4" style={{textAlign:'center'}}>EOS Risk @ Birth</div>
+            <div className="gauge">
+              <svg viewBox="0 0 200 110">
+                <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="var(--surface-3)" strokeWidth="14" strokeLinecap="round"/>
+                <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke={gc} strokeWidth="14" strokeLinecap="round" strokeDasharray={`${pct*251} 251`}/>
+                <circle cx={20+80-80*Math.cos(Math.PI*pct)} cy={100-80*Math.sin(Math.PI*pct)} r="7" fill={gc} stroke="var(--surface)" strokeWidth="2.5"/>
+              </svg>
+            </div>
+            <div className="gauge-num" style={{color:gc}}>{birthRisk < 0.01 ? birthRisk.toFixed(4) : birthRisk.toFixed(2)}</div>
+            <div className="unit-line">per 1,000 live births</div>
+            <div className={`badge badge-${cat.badge}`} style={{marginTop:12,padding:'5px 14px',fontSize:12}}>
+              {cat.label} · {cat.en}
+            </div>
+          </div>
+
+          {/* Clinical Exam Table */}
+          <div className="card mt-12" style={{padding:0,overflow:'hidden'}}>
+            <div style={{background:'var(--teal)',color:'#fff',padding:'10px 16px',fontSize:13,fontWeight:700}}>
+              EOS Risk after Clinical Exam
+            </div>
+            <table className="eos" style={{fontSize:12.5}}>
+              <thead>
+                <tr>
+                  <th>Clinical Presentation</th>
+                  <th>Risk / 1,000</th>
+                  <th>Recommendation</th>
+                </tr>
+              </thead>
+              <tbody>
+                {table.map(row => (
+                  <tr key={row.exam}>
+                    <td>
+                      <span className={`badge badge-${row.badge}`} style={{marginRight:6}}>{row.exam}</span>
+                      <div style={{fontSize:11,color:'var(--text-3)',marginTop:2}}>{row.examTh}</div>
+                    </td>
+                    <td className="mono" style={{fontWeight:700,color:badgeColor(row.badge),fontSize:14}}>
+                      {row.risk < 0.01 ? row.risk.toFixed(3) : row.risk.toFixed(2)}
+                    </td>
+                    <td>
+                      <div style={{fontWeight:600,fontSize:12}}>{row.recommend}</div>
+                      <div style={{fontSize:11,color:'var(--text-3)',marginTop:2}}>{row.recommendTh}</div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Clinical Classification Guide */}
+          <div className="card mt-12" style={{padding:0,overflow:'hidden'}}>
+            <button
+              onClick={()=>setShowGuide(g=>!g)}
+              style={{width:'100%',padding:'10px 16px',display:'flex',justifyContent:'space-between',alignItems:'center',background:'var(--surface-2)',border:'none',cursor:'pointer',fontSize:12.5,fontWeight:600,color:'var(--text-2)',textAlign:'left'}}>
+              Classification of Infant's Clinical Presentation
+              <span style={{fontSize:10,opacity:.6}}>{showGuide?'▲ ซ่อน':'▼ ดู'}</span>
+            </button>
+            {showGuide && (
+              <div style={{fontSize:12,lineHeight:1.65,padding:'14px 16px',color:'var(--text-2)'}}>
+                <div style={{marginBottom:12}}>
+                  <div className="badge badge-red" style={{marginBottom:6}}>Clinical Illness</div>
+                  <ul style={{paddingLeft:18,marginTop:4}}>
+                    <li>Persistent need for NCPAP / HFNC / mechanical ventilation (outside delivery room)</li>
+                    <li>Hemodynamic instability requiring vasoactive drugs</li>
+                    <li>Neonatal encephalopathy / Perinatal depression (Seizure, Apgar 5 min &lt; 5)</li>
+                    <li>Need for supplemental O₂ ≥ 2 hr to maintain SpO₂ &gt; 90%</li>
+                  </ul>
+                </div>
+                <div style={{marginBottom:12}}>
+                  <div className="badge badge-amber" style={{marginBottom:6}}>Equivocal</div>
+                  <ul style={{paddingLeft:18,marginTop:4}}>
+                    <li>Persistent physiologic abnormality ≥ 4 hr: HR ≥ 160, RR ≥ 60, Temp instability, Respiratory distress</li>
+                    <li>Two or more physiologic abnormalities lasting ≥ 2 hr (same parameters)</li>
+                    <li style={{fontStyle:'italic',color:'var(--text-3)'}}>Note: abnormality can be intermittent</li>
+                  </ul>
+                </div>
+                <div>
+                  <div className="badge badge-green" style={{marginBottom:6}}>Well Appearing</div>
+                  <p style={{paddingLeft:18,marginTop:4}}>No persistent physiologic abnormalities</p>
+                </div>
+                <div style={{marginTop:12,paddingTop:12,borderTop:'1px dashed var(--border)',fontSize:11,color:'var(--text-3)'}}>
+                  Reference: Kuzniewicz et al. JAMA Pediatr 2017; Kaiser Permanente EOS Calculator 2024 update.<br/>
+                  neonatalsepsiscalculator.kaiserpermanente.org
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

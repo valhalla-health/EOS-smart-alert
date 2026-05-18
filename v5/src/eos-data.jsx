@@ -188,19 +188,93 @@ const EOS = window.EOS = (() => {
     return null;
   };
 
-  // ── EOS RISK CALCULATOR (Kaiser-Permanente) ─────────────
-  const calcEOSRisk = ({ga, romHours=0, maternalTemp=37, gbsStatus='unk', iapStatus='none'}) => {
-    let base;
-    if (ga>=41) base=0.057; else if (ga>=40) base=0.068; else if (ga>=39) base=0.083;
-    else if (ga>=38) base=0.10; else if (ga>=37) base=0.15;
-    else if (ga>=36) base=0.32; else if (ga>=35) base=0.57; else base=0.95;
-    let risk=base;
-    if (gbsStatus==='pos') risk*=7.0; else if (gbsStatus==='neg') risk*=0.25;
-    if (romHours>=18) risk*=2.0; else if (romHours>=12) risk*=1.5;
-    if (maternalTemp>=39.0) risk*=5.0; else if (maternalTemp>=38.5) risk*=3.0; else if (maternalTemp>=38.0) risk*=2.0;
-    if (iapStatus==='adequate') risk*=0.25; else if (iapStatus==='partial') risk*=0.5;
-    return Math.round(risk*1000)/1000;
+  // ── EOS RISK CALCULATOR — KP 2024 (Kuzniewicz / Puopolo) ─
+  // Reference: neonatalsepsiscalculator.kaiserpermanente.org
+  // version: '2017' (no universal GBS screening) | '2024' (universal GBS screening)
+  // iapType: 'broad_4plus' | 'broad_2to4' | 'gbs_2plus' | 'none'
+  // gbsStatus: 'neg' | 'pos' | 'unk'
+  // maternalTempC: in Celsius
+  // incidence: base EOS rate at your institution per 1000 live births
+  const calcEOSRisk = ({
+    gaWeeks=39, gaDays=0,
+    romHours=12, maternalTempC=37.0,
+    gbsStatus='unk', iapType='none',
+    incidence=0.5, version='2024',
+  }) => {
+    const ga = gaWeeks + (gaDays || 0) / 7;
+
+    // GA factor (relative to GA 39 wk reference)
+    let gaFactor;
+    if (ga < 35)      gaFactor = 8.0;
+    else if (ga < 36) gaFactor = 4.0;
+    else if (ga < 37) gaFactor = 2.3;
+    else if (ga < 38) gaFactor = 1.5;
+    else if (ga < 39) gaFactor = 1.0;
+    else if (ga < 40) gaFactor = 0.75;
+    else if (ga < 41) gaFactor = 0.60;
+    else              gaFactor = 0.50;
+
+    let risk = incidence * gaFactor;
+
+    // GBS status
+    if (version === '2024') {
+      // Universal screening: negative result more reliable
+      if (gbsStatus === 'pos') risk *= 6.0;
+      else if (gbsStatus === 'neg') risk *= 0.18;
+      // unk = ×1.0
+    } else {
+      // 2017: no universal screening
+      if (gbsStatus === 'pos') risk *= 6.0;
+      else if (gbsStatus === 'neg') risk *= 0.27;
+    }
+
+    // ROM duration
+    if (romHours >= 24)      risk *= 1.9;
+    else if (romHours >= 18) risk *= 1.4;
+    else if (romHours >= 12) risk *= 1.1;
+    else                     risk *= 0.7; // < 12hr
+
+    // Maternal temperature (Celsius)
+    if (maternalTempC >= 39.0)      risk *= 4.2;
+    else if (maternalTempC >= 38.0) risk *= 2.3;
+    // < 38°C = ×1.0
+
+    // Intrapartum antibiotics — 4-level (KP 2024)
+    if (iapType === 'broad_4plus')  risk *= 0.065; // most protective
+    else if (iapType === 'broad_2to4') risk *= 0.12;
+    else if (iapType === 'gbs_2plus')  risk *= 0.15;
+    // 'none' / < 2hr = ×1.0
+
+    return Math.max(0.001, Math.round(risk * 10000) / 10000);
   };
+
+  // Clinical presentation table — risk modifier after exam
+  const calcEOSTable = (birthRisk) => [
+    {
+      exam: 'Clinical Illness', examTh: 'อาการหนัก',
+      risk: Math.min(999, Math.round(birthRisk * 6.5 * 100) / 100),
+      recommend: 'Blood culture + Empiric antibiotics',
+      recommendTh: 'เริ่ม Empirical ABX ทันที + blood culture',
+      badge: 'red',
+      vitals: 'Hemodynamic instability, NCPAP/HFNC, O₂ ≥ 2 hr',
+    },
+    {
+      exam: 'Equivocal', examTh: 'กำกวม',
+      risk: Math.min(999, Math.round(birthRisk * 2.2 * 100) / 100),
+      recommend: 'Blood culture + CBC → individualize',
+      recommendTh: 'เจาะ CBC + blood culture พิจารณา ABX',
+      badge: 'amber',
+      vitals: 'HR ≥ 160 / RR ≥ 60 / Temp instability ≥ 4 hr',
+    },
+    {
+      exam: 'Well Appearing', examTh: 'ดูดี',
+      risk: Math.min(999, Math.round(birthRisk * 0.45 * 100) / 100),
+      recommend: 'Routine newborn care',
+      recommendTh: 'ดูแลตามปกติ — Serial PE ตาม protocol',
+      badge: 'green',
+      vitals: 'ไม่มีความผิดปกติคงที่',
+    },
+  ];
 
   const riskCategory = risk => {
     if (risk<0.5)  return {level:'low', label:'ความเสี่ยงต่ำ',    en:'Low',       badge:'green',recommend:'Routine care',                    detail:'Continue routine newborn care. No additional workup.'};
@@ -261,6 +335,7 @@ const EOS = window.EOS = (() => {
     getSession, setSession, clearSession,
     getUsers, saveUsers, findStaffByEmail,
     auditLog, getCfg, setCfg, syncRow, loginGAS, getToken, fetchT,
+    calcEOSTable,
     nowISO, maskHn, esc, fmtTime, fmtDateTime, fmtRelative,
     evalVitals, vitalFlag, calcEOSRisk, riskCategory,
     ageHours, vitalsFor, doneTPs, nextTP, tpDueAt, tpStatus,
