@@ -91,7 +91,10 @@ function App() {
   const doLogout  = () => {
     EOS.auditLog('LOGOUT', session.name);
     EOS.clearSession();
-    // Reset Google Sign-In so the button re-renders correctly on next login
+    // Clear patient PII from localStorage (Vera #3 — shared workstation protection)
+    EOS.setStore(EOS.STORE.patients, []);
+    EOS.setStore(EOS.STORE.vitals, []);
+    // Reset Google Sign-In
     try { if (window.google?.accounts?.id) google.accounts.id.disableAutoSelect(); } catch {}
     setSession(null);
   };

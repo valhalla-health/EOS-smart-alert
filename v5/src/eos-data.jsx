@@ -78,11 +78,23 @@ const EOS = window.EOS = (() => {
 
   // ── AUDIT LOG ───────────────────────────────────────────
   const auditLog = (action, detail='') => {
-    const s   = getSession();
+    const s     = getSession();
+    const entry = { ts:new Date().toISOString(), staff:s?.name||'?', role:s?.role||'?', action, detail };
+    // 1. Persist locally
     const arr = getStore(STORE.audit);
-    arr.push({ts:new Date().toISOString(), staff:s?.name||'?', role:s?.role||'?', action, detail});
+    arr.push(entry);
     if (arr.length > 1000) arr.splice(0, arr.length-1000);
     setStore(STORE.audit, arr);
+    // 2. Sync to GAS immediately — fire-and-forget (Vera #7)
+    // syncRow defined below in same closure scope — safe to call
+    const url = getCfg?.() ? (getCfg().url || DEFAULT_WEBHOOK) : DEFAULT_WEBHOOK;
+    const token = s?.token || null;
+    if (token) {
+      fetch(url, {
+        method:'POST', headers:{'Content-Type':'text/plain'},
+        body: JSON.stringify({sheet:'AuditLog', ...entry, token}),
+      }).catch(()=>{}); // silent fail — audit is best-effort sync
+    }
   };
 
   // ── CONFIG & SYNC ────────────────────────────────────────
