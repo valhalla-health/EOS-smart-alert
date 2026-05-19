@@ -164,6 +164,41 @@ const EOS = window.EOS = (() => {
   };
 
   // ── VITAL EVALUATION ────────────────────────────────────
+
+  /**
+   * evalTrend — KP "Equivocal" criterion detection across consecutive PEs
+   * Returns issues[] if HR/RR/Temp/RD abnormal in ≥2 consecutive readings
+   * (simulates "persistent physiologic abnormality")
+   */
+  const evalTrend = (hn, store) => {
+    const vits = vitalsFor(hn, store);
+    if (vits.length < 2) return [];
+    const last2 = vits.slice(-2);
+    const issues = [];
+
+    // Check each numeric vital: both readings must be outside normal (lo/hi)
+    [['P', 'HR'], ['R', 'RR'], ['T', 'Temp']].forEach(([k, label]) => {
+      const r = RANGES[k];
+      if (!r) return;
+      const allAbnormal = last2.every(v => {
+        const val = v[k];
+        return val != null && (+val < r.lo || +val > r.hi);
+      });
+      if (allAbnormal) {
+        const lastVal = last2[last2.length - 1][k];
+        const sev = (+lastVal < r.hardLo || +lastVal > r.hardHi) ? 'red' : 'amber';
+        issues.push({ k: label, txt: `persistent ${label}=${lastVal}${r.unit}`, sev, trend: true });
+      }
+    });
+
+    // Persistent respiratory distress (both readings have rd)
+    if (last2.every(v => v.rd && v.rd.length > 0)) {
+      issues.push({ k: 'RD', txt: 'persistent respiratory distress', sev: 'red', trend: true });
+    }
+
+    return issues;
+  };
+
   const evalVitals = v => {
     const issues = [];
     if (v.wellbeing==='no') issues.push({k:'Wellbeing',txt:'ผิดปกติ',sev:'red'});
@@ -337,7 +372,7 @@ const EOS = window.EOS = (() => {
     auditLog, getCfg, setCfg, syncRow, loginGAS, getToken, fetchT,
     calcEOSTable,
     nowISO, maskHn, esc, fmtTime, fmtDateTime, fmtRelative,
-    evalVitals, vitalFlag, calcEOSRisk, riskCategory,
+    evalVitals, evalTrend, vitalFlag, calcEOSRisk, riskCategory,
     ageHours, vitalsFor, doneTPs, nextTP, tpDueAt, tpStatus,
     seedDemoData,
   };
@@ -345,6 +380,6 @@ const EOS = window.EOS = (() => {
 
 // Convenience globals — used across all panel files
 const { TIMEPOINTS, OFFSETS, ABX_TPS, RANGES, SKIN_OPTS, RD_OPTS } = EOS;
-const { evalVitals, vitalFlag, calcEOSRisk, riskCategory } = EOS;
+const { evalVitals, evalTrend, vitalFlag, calcEOSRisk, riskCategory } = EOS;
 const { ageHours, vitalsFor, doneTPs, nextTP, tpDueAt, tpStatus } = EOS;
 const { fmtTime, fmtDateTime, fmtRelative } = EOS;

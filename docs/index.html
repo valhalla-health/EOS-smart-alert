@@ -673,6 +673,41 @@ const EOS = window.EOS = (() => {
   };
 
   // ── VITAL EVALUATION ────────────────────────────────────
+
+  /**
+   * evalTrend — KP "Equivocal" criterion detection across consecutive PEs
+   * Returns issues[] if HR/RR/Temp/RD abnormal in ≥2 consecutive readings
+   * (simulates "persistent physiologic abnormality")
+   */
+  const evalTrend = (hn, store) => {
+    const vits = vitalsFor(hn, store);
+    if (vits.length < 2) return [];
+    const last2 = vits.slice(-2);
+    const issues = [];
+
+    // Check each numeric vital: both readings must be outside normal (lo/hi)
+    [['P', 'HR'], ['R', 'RR'], ['T', 'Temp']].forEach(([k, label]) => {
+      const r = RANGES[k];
+      if (!r) return;
+      const allAbnormal = last2.every(v => {
+        const val = v[k];
+        return val != null && (+val < r.lo || +val > r.hi);
+      });
+      if (allAbnormal) {
+        const lastVal = last2[last2.length - 1][k];
+        const sev = (+lastVal < r.hardLo || +lastVal > r.hardHi) ? 'red' : 'amber';
+        issues.push({ k: label, txt: `persistent ${label}=${lastVal}${r.unit}`, sev, trend: true });
+      }
+    });
+
+    // Persistent respiratory distress (both readings have rd)
+    if (last2.every(v => v.rd && v.rd.length > 0)) {
+      issues.push({ k: 'RD', txt: 'persistent respiratory distress', sev: 'red', trend: true });
+    }
+
+    return issues;
+  };
+
   const evalVitals = v => {
     const issues = [];
     if (v.wellbeing==='no') issues.push({k:'Wellbeing',txt:'ผิดปกติ',sev:'red'});
@@ -846,7 +881,7 @@ const EOS = window.EOS = (() => {
     auditLog, getCfg, setCfg, syncRow, loginGAS, getToken, fetchT,
     calcEOSTable,
     nowISO, maskHn, esc, fmtTime, fmtDateTime, fmtRelative,
-    evalVitals, vitalFlag, calcEOSRisk, riskCategory,
+    evalVitals, evalTrend, vitalFlag, calcEOSRisk, riskCategory,
     ageHours, vitalsFor, doneTPs, nextTP, tpDueAt, tpStatus,
     seedDemoData,
   };
@@ -854,7 +889,7 @@ const EOS = window.EOS = (() => {
 
 // Convenience globals — used across all panel files
 const { TIMEPOINTS, OFFSETS, ABX_TPS, RANGES, SKIN_OPTS, RD_OPTS } = EOS;
-const { evalVitals, vitalFlag, calcEOSRisk, riskCategory } = EOS;
+const { evalVitals, evalTrend, vitalFlag, calcEOSRisk, riskCategory } = EOS;
 const { ageHours, vitalsFor, doneTPs, nextTP, tpDueAt, tpStatus } = EOS;
 const { fmtTime, fmtDateTime, fmtRelative } = EOS;
 
@@ -890,6 +925,7 @@ const ICON_PATHS = {
   x:          React.createElement('path',{d:'M6 6l12 12M18 6 6 18'}),
   signature:  React.createElement(React.Fragment,null,React.createElement('path',{d:'M3 17c4 0 4-10 8-10s4 10 8 10'}),React.createElement('path',{d:'M3 21h18'})),
   abx:        React.createElement(React.Fragment,null,React.createElement('circle',{cx:'12',cy:'12',r:'3'}),React.createElement('path',{d:'M12 3v3M12 18v3M3 12h3M18 12h3'})),
+  chart:      React.createElement(React.Fragment,null,React.createElement('polyline',{points:'22 12 18 12 15 21 9 3 6 12 2 12'})),
   lock:       React.createElement(React.Fragment,null,React.createElement('rect',{x:'3',y:'11',width:'18',height:'11',rx:'2'}),React.createElement('path',{d:'M7 11V7a5 5 0 0 1 10 0v4'})),
   users:      React.createElement(React.Fragment,null,React.createElement('circle',{cx:'9',cy:'8',r:'3.5'}),React.createElement('path',{d:'M3 21c0-3.3 2.7-6 6-6s6 2.7 6 6'}),React.createElement('circle',{cx:'17',cy:'7',r:'2.5'}),React.createElement('path',{d:'M15 14c2 0 6 1 6 5'})),
   refresh:    React.createElement(React.Fragment,null,React.createElement('polyline',{points:'23 4 23 10 17 10'}),React.createElement('path',{d:'M20.5 15a9 9 0 1 1-2.2-9.2L23 10'})),
@@ -1193,11 +1229,14 @@ function PatientCard({ patient: p, vitals, onClick }) {
   const all = vitalsFor(p.hn, vitals);
   const lastV = all[all.length - 1];
   const hasAlert = lastV && evalVitals(lastV).some(i => i.sev === 'red');
+  const trendAlerts = evalTrend(p.hn, vitals);
+  const hasTrend = trendAlerts.length > 0;
   return (
     <div className="patient-card" onClick={onClick}>
       <div className="top-row">
         <StatusDot patient={p} vitals={vitals}/>
-        <span className="name" title={p.name} style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:140}}>{p.name.replace('Baby ของ ','')}</span>
+        <span className="name" title={p.name} style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:120}}>{p.name.replace('Baby ของ ','')}</span>
+        {hasTrend && <span className="badge badge-amber" style={{fontSize:9,padding:'1px 5px',flexShrink:0}}>TREND</span>}
         <span className="hn mono">{p.bed||p.hn}</span>
       </div>
       <div className="meta">
@@ -1392,6 +1431,28 @@ function PatientDetail({ patient: p, vitals, onBack, onAddPE, onDischarge, sessi
           )}
         </div>
       </div>
+
+      {/* Trend-based alert banner — Equivocal criterion */}
+      {(() => {
+        const trends = evalTrend(p.hn, vitals);
+        if (!trends.length) return null;
+        const redTrends = trends.filter(t=>t.sev==='red');
+        const color = redTrends.length ? 'red' : 'amber';
+        return (
+          <div className={`banner ${color} mb-12`} style={{borderLeft:`4px solid var(--${color})`}}>
+            <Icon name="warn"/>
+            <div style={{flex:1}}>
+              <div className="title">⚠ Trend Alert — Equivocal Criterion</div>
+              <div style={{marginTop:4,fontSize:12}}>
+                {trends.map(t=>t.txt).join(' · ')}
+              </div>
+              <div style={{marginTop:4,fontSize:11,opacity:.8}}>
+                ≥2 consecutive readings abnormal — พิจารณา Clinical Equivocal classification
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {hasAlert && (
         <div className="banner red mb-16" style={{borderLeft:'4px solid var(--red)'}}>
@@ -2222,8 +2283,21 @@ function Schedule({ patients, vitals, onOpenPatient }) {
 // ABX APPROVAL
 // ══════════════════════════════════════════════════
 
+const ABX_REASONS = [
+  {k:'culture_negative',  l:'Blood culture negative — safe to stop'},
+  {k:'culture_pending',   l:'Culture pending — clinically stable'},
+  {k:'clinical_improved', l:'Clinical improvement — de-escalate'},
+  {k:'clinical_worsen',   l:'Clinical deterioration — continue ABX'},
+  {k:'risk_high',         l:'High EOS risk score — continue prophylactic'},
+  {k:'course_complete',   l:'Completed ≥ 48hr empirical course'},
+  {k:'other',             l:'Other (see Management plan)'},
+];
+
 function ABXApproval({ patients, vitals, onApprove, session }) {
+  const { useState } = React;
+  const [reasons, setReasons] = useState({});
   const rc = EOS.ROLE_CFG[session.role];
+
   if (!rc.canApproveAbx) return (
     <div className="panel">
       <div className="page-head"><div><h1>ABX Approval</h1></div></div>
@@ -2234,29 +2308,233 @@ function ABXApproval({ patients, vitals, onApprove, session }) {
       </div>
     </div>
   );
+
   const pending = vitals.filter(v=>EOS.ABX_TPS.has(v.ageHr)&&!v.abxApproved);
   const pMap = Object.fromEntries(patients.map(p=>[p.hn,p]));
   return (
     <div className="panel">
       <div className="page-head"><div><h1>ABX Time-Out Approval</h1><div className="sub">รายการรอการอนุมัติ · เฉพาะแพทย์</div></div></div>
-      {pending.length===0?<div className="card"><div className="muted center" style={{padding:40}}>ไม่มีรายการรอการอนุมัติ ✓</div></div>:pending.map(v=>{
-        const pt=pMap[v.hn], issues=evalVitals(v), hasRed=issues.some(i=>i.sev==='red');
+      {pending.length===0 ? (
+        <div className="card"><div className="muted center" style={{padding:40}}>ไม่มีรายการรอการอนุมัติ ✓</div></div>
+      ) : pending.map(v => {
+        const pt = pMap[v.hn], issues = evalVitals(v), hasRed = issues.some(i=>i.sev==='red');
+        const selectedReason = reasons[v.ts] || '';
         return (
           <div key={v.ts} className="card mb-12" style={{border:'2px solid #7c3aed',background:'linear-gradient(135deg,#f5f3ff,#fff)'}}>
-            <div className="card-head"><Icon name="abx" size={20} style={{color:'#7c3aed'}}/><strong style={{color:'#7c3aed'}}>ABX Time-Out — {v.ageHr}</strong><span className="badge badge-navy" style={{marginLeft:'auto'}}>{v.hn}</span>{pt&&<span style={{marginLeft:8,fontSize:12,color:'var(--text-3)'}}>{pt.name}</span>}</div>
+            <div className="card-head">
+              <Icon name="abx" size={20} style={{color:'#7c3aed'}}/>
+              <strong style={{color:'#7c3aed'}}>ABX Time-Out — {v.ageHr}</strong>
+              <span className="badge badge-navy" style={{marginLeft:'auto'}}>{v.hn}</span>
+              {pt && <span style={{marginLeft:8,fontSize:12,color:'var(--text-3)'}}>{pt.name}</span>}
+            </div>
             <div style={{fontSize:13,color:'var(--text-2)',lineHeight:1.6}}>
               ตรวจโดย: {v.staff} · {fmtDateTime(v.ts)}<br/>
               T: {v.T??'—'} · HR: {v.P??'—'} · RR: {v.R??'—'} · SpO₂: {v.SpO2??'—'}% · Skin: {v.skin||'—'}<br/>
-              Status: {hasRed?<span style={{color:'var(--red)',fontWeight:600}}>❌ ผิดปกติ</span>:<span style={{color:'var(--teal)',fontWeight:600}}>✅ ปกติ</span>}
-              {v.management&&<><br/>Plan: {v.management}</>}
+              Status: {hasRed
+                ? <span style={{color:'var(--red)',fontWeight:600}}>❌ ผิดปกติ</span>
+                : <span style={{color:'var(--teal)',fontWeight:600}}>✅ ปกติ</span>}
+              {v.management && <><br/>Plan: {v.management}</>}
+              {/* Lab results if present */}
+              {(v.crp||v.cultureStatus==='negative'||v.cultureStatus==='positive') && (
+                <div style={{marginTop:4,display:'flex',gap:8,flexWrap:'wrap'}}>
+                  {v.crp!=null && <span className={`badge badge-${+v.crp>=10?'red':'grey'}`}>CRP {v.crp} mg/L</span>}
+                  {v.cultureStatus && v.cultureStatus!=='not_sent' && <span className={`badge badge-${v.cultureStatus==='positive'?'red':v.cultureStatus==='negative'?'green':'amber'}`}>Culture: {v.cultureStatus}</span>}
+                </div>
+              )}
             </div>
-            <div style={{display:'flex',gap:10,marginTop:14}}>
-              <button className="btn btn-danger btn-sm" onClick={()=>onApprove(v.ts,'stop',pt?.name||v.hn)}>🛑 หยุด Antibiotic</button>
-              <button className="btn btn-ghost btn-sm" onClick={()=>onApprove(v.ts,'continue',pt?.name||v.hn)}>▶️ ต่อ Antibiotic</button>
+
+            {/* Override Reason — required */}
+            <div className="field mt-12">
+              <label className="lbl" style={{color:'#7c3aed'}}>Clinical Reason for Decision <span style={{color:'var(--red)'}}>*</span></label>
+              <select className="input mt-6" value={selectedReason}
+                onChange={e=>setReasons(r=>({...r,[v.ts]:e.target.value}))}
+                style={{borderColor:selectedReason?'#7c3aed':'var(--border-2)'}}>
+                <option value="">เลือกเหตุผล (required)...</option>
+                {ABX_REASONS.map(o=><option key={o.k} value={o.k}>{o.l}</option>)}
+              </select>
+            </div>
+
+            <div style={{display:'flex',gap:10,marginTop:12}}>
+              <button className="btn btn-danger btn-sm" disabled={!selectedReason}
+                onClick={()=>onApprove(v.ts,'stop',pt?.name||v.hn,selectedReason)}>
+                🛑 หยุด Antibiotic
+              </button>
+              <button className="btn btn-ghost btn-sm" disabled={!selectedReason}
+                onClick={()=>onApprove(v.ts,'continue',pt?.name||v.hn,selectedReason)}>
+                ▶️ ต่อ Antibiotic
+              </button>
+              {!selectedReason && <span style={{fontSize:11,color:'var(--text-3)',alignSelf:'center'}}>เลือกเหตุผลก่อน</span>}
             </div>
           </div>
         );
       })}
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════
+// QUALITY METRICS
+// ══════════════════════════════════════════════════
+
+function QualityMetrics({ patients, vitals }) {
+  const { useMemo } = React;
+
+  const m = useMemo(() => {
+    const active    = patients.filter(p=>!p.archived);
+    const archived  = patients.filter(p=>p.archived);
+    const total     = patients.length;
+
+    // Serial PE completion (all 7 TPs done)
+    const completed = patients.filter(p => {
+      const done = new Set(vitalsFor(p.hn, vitals).map(v=>v.ageHr));
+      return TIMEPOINTS.every(tp=>done.has(tp));
+    }).length;
+
+    // ABX decisions
+    const abxEntries = vitals.filter(v=>v.abxApproved);
+    const abxStopped = abxEntries.filter(v=>v.abxDecision==='stop').length;
+    const abxContinued = abxEntries.filter(v=>v.abxDecision==='continue').length;
+
+    // Override reasons breakdown
+    const reasonCounts = {};
+    abxEntries.forEach(v => {
+      if (v.abxReason) reasonCounts[v.abxReason] = (reasonCounts[v.abxReason]||0)+1;
+    });
+
+    // Culture sent rate
+    const allPE = vitals.length;
+    const cultureEntries = vitals.filter(v=>v.cultureStatus&&v.cultureStatus!=='not_sent');
+    const culturePos = vitals.filter(v=>v.cultureStatus==='positive').length;
+
+    // Abnormal PE rate (alert ratio)
+    const redPE   = vitals.filter(v=>evalVitals(v).some(i=>i.sev==='red')).length;
+    const amberPE = vitals.filter(v=>evalVitals(v).some(i=>i.sev==='amber')).length;
+
+    // Time to first PE (hours from DOB to first vitals)
+    const firstPETimes = patients.map(p => {
+      const first = vitalsFor(p.hn, vitals)[0];
+      if (!first) return null;
+      return (new Date(first.ts)-new Date(p.dob))/3600000;
+    }).filter(t=>t!==null&&t>0&&t<72);
+    const avgFirstPE = firstPETimes.length
+      ? Math.round(firstPETimes.reduce((a,b)=>a+b,0)/firstPETimes.length*10)/10
+      : null;
+
+    return { total, active:active.length, archived:archived.length,
+      completed, completionPct: total ? Math.round(completed/total*100) : 0,
+      abxStopped, abxContinued, abxTotal:abxEntries.length,
+      reasonCounts, allPE, cultureEntries:cultureEntries.length,
+      culturePct: allPE ? Math.round(cultureEntries.length/allPE*100) : 0,
+      culturePos, redPE, amberPE,
+      redPct: allPE ? Math.round(redPE/allPE*100) : 0,
+      avgFirstPE };
+  }, [patients, vitals]);
+
+  const Stat = ({label, value, sub, color}) => (
+    <div className="stat" style={{borderLeft:`4px solid ${color||'var(--teal)'}`}}>
+      <div className="lbl">{label}</div>
+      <div className="val" style={{color:color||'var(--text)'}}>{value}</div>
+      {sub && <div className="trend">{sub}</div>}
+    </div>
+  );
+
+  const ABX_REASON_LABELS = {
+    culture_negative:'Culture negative', culture_pending:'Culture pending',
+    clinical_improved:'Clinical improvement', clinical_worsen:'Clinical deterioration',
+    risk_high:'High risk score', course_complete:'Completed course', other:'Other',
+  };
+
+  return (
+    <div className="panel">
+      <div className="page-head">
+        <div><h1>Quality Metrics</h1><div className="sub">EOS Smart Alert — ข้อมูลสรุปคุณภาพการดูแล</div></div>
+      </div>
+
+      {/* Overview stats */}
+      <div className="stat-grid mb-14">
+        <Stat label="Patients Enrolled"  value={m.total}           sub={`${m.active} active · ${m.archived} discharged`} color="var(--teal)"/>
+        <Stat label="Serial PE Complete" value={`${m.completed}/${m.total}`}  sub={`${m.completionPct}% completion rate`} color="var(--green)"/>
+        <Stat label="Serial PE Records"  value={m.allPE}           sub={`${m.redPct}% abnormal (red alert)`} color="var(--text)"/>
+        <Stat label="Avg Time to 1st PE" value={m.avgFirstPE ? m.avgFirstPE+'hr' : '—'} sub="from birth" color="var(--amber)"/>
+      </div>
+
+      <div className="row-2 mb-14">
+        {/* ABX Decisions */}
+        <div className="card">
+          <div className="card-head"><span className="card-title">ABX Time-Out Decisions</span></div>
+          <div style={{display:'flex',gap:16,marginTop:12}}>
+            <div style={{textAlign:'center',flex:1}}>
+              <div style={{fontSize:32,fontWeight:700,color:'var(--red)',fontFamily:'IBM Plex Mono'}}>{m.abxStopped}</div>
+              <div style={{fontSize:11,color:'var(--text-3)',marginTop:4}}>🛑 หยุด ABX</div>
+            </div>
+            <div style={{width:1,background:'var(--border)'}}/>
+            <div style={{textAlign:'center',flex:1}}>
+              <div style={{fontSize:32,fontWeight:700,color:'var(--teal)',fontFamily:'IBM Plex Mono'}}>{m.abxContinued}</div>
+              <div style={{fontSize:11,color:'var(--text-3)',marginTop:4}}>▶️ ต่อ ABX</div>
+            </div>
+            <div style={{width:1,background:'var(--border)'}}/>
+            <div style={{textAlign:'center',flex:1}}>
+              <div style={{fontSize:32,fontWeight:700,color:'var(--text)',fontFamily:'IBM Plex Mono'}}>{m.abxTotal}</div>
+              <div style={{fontSize:11,color:'var(--text-3)',marginTop:4}}>Total decisions</div>
+            </div>
+          </div>
+          {/* Reason breakdown */}
+          {Object.keys(m.reasonCounts).length > 0 && (
+            <div style={{marginTop:14,paddingTop:12,borderTop:'1px dashed var(--border)'}}>
+              <div className="lbl mb-8">Override Reasons</div>
+              {Object.entries(m.reasonCounts).sort((a,b)=>b[1]-a[1]).map(([k,n])=>(
+                <div key={k} style={{display:'flex',justifyContent:'space-between',fontSize:12,padding:'3px 0',color:'var(--text-2)'}}>
+                  <span>{ABX_REASON_LABELS[k]||k}</span>
+                  <span className="badge badge-grey" style={{fontSize:11}}>{n}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Lab & Alerts */}
+        <div className="card">
+          <div className="card-head"><span className="card-title">Lab & Alert Quality</span></div>
+          <div style={{marginTop:12,display:'flex',flexDirection:'column',gap:14}}>
+            <div>
+              <div style={{display:'flex',justifyContent:'space-between',marginBottom:4}}>
+                <span style={{fontSize:13,color:'var(--text-2)'}}>Blood culture sent</span>
+                <span style={{fontWeight:700,fontFamily:'IBM Plex Mono',fontSize:14}}>{m.culturePct}%</span>
+              </div>
+              <div style={{height:6,background:'var(--surface-3)',borderRadius:3}}>
+                <div style={{height:'100%',width:`${m.culturePct}%`,background:'var(--teal)',borderRadius:3,transition:'width .4s'}}/>
+              </div>
+              <div style={{fontSize:11,color:'var(--text-3)',marginTop:2}}>{m.cultureEntries} / {m.allPE} PE records · {m.culturePos} positive</div>
+            </div>
+
+            <div>
+              <div style={{display:'flex',justifyContent:'space-between',marginBottom:4}}>
+                <span style={{fontSize:13,color:'var(--text-2)'}}>Abnormal vitals (red)</span>
+                <span style={{fontWeight:700,fontFamily:'IBM Plex Mono',fontSize:14,color:'var(--red)'}}>{m.redPct}%</span>
+              </div>
+              <div style={{height:6,background:'var(--surface-3)',borderRadius:3}}>
+                <div style={{height:'100%',width:`${m.redPct}%`,background:'var(--red)',borderRadius:3}}/>
+              </div>
+              <div style={{fontSize:11,color:'var(--text-3)',marginTop:2}}>{m.redPE} red · {m.amberPE} amber / {m.allPE} total PE</div>
+            </div>
+
+            <div>
+              <div style={{display:'flex',justifyContent:'space-between',marginBottom:4}}>
+                <span style={{fontSize:13,color:'var(--text-2)'}}>PE completion rate</span>
+                <span style={{fontWeight:700,fontFamily:'IBM Plex Mono',fontSize:14,color:'var(--green)'}}>{m.completionPct}%</span>
+              </div>
+              <div style={{height:6,background:'var(--surface-3)',borderRadius:3}}>
+                <div style={{height:'100%',width:`${m.completionPct}%`,background:'var(--green)',borderRadius:3}}/>
+              </div>
+              <div style={{fontSize:11,color:'var(--text-3)',marginTop:2}}>{m.completed} / {m.total} patients completed all 7 timepoints</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="card" style={{fontSize:12,color:'var(--text-3)',textAlign:'center',padding:'10px 16px'}}>
+        Based on {m.total} patients · {m.allPE} PE records · Local data only — sync to GAS for cross-session persistence
+      </div>
     </div>
   );
 }
@@ -2423,7 +2701,7 @@ function UserManagement({ session }) {
 
 Object.assign(window, {
   Dashboard, PatientDetail, PatientList, Triage, PEForm, Calculator,
-  AlertsLog, HandoffSummary, Schedule, ABXApproval, AllRecords,
+  AlertsLog, HandoffSummary, Schedule, ABXApproval, AllRecords, QualityMetrics,
   AuditLog, Config, UserManagement, PatientCard, SparkTile, StatusDot,
 });
 
@@ -2468,6 +2746,7 @@ const NAV = [
   { key:'schedule',  icon:'calendar', label:'Schedule',        section:'รายงาน',   roles:['doctor','nurse','admin'] },
   { key:'abx',       icon:'abx',      label:'ABX Approval',    section:'รายงาน',   roles:['doctor','admin'] },
   { key:'records',   icon:'list',     label:'All Records',     section:'ระบบ',     roles:['doctor','nurse','admin'] },
+  { key:'metrics',   icon:'chart',    label:'Quality Metrics', section:'ระบบ',     roles:['doctor','admin'] },
   { key:'audit',     icon:'eye',      label:'Audit Log',       section:'ระบบ',     roles:['admin'] },
   { key:'config',    icon:'cog',      label:'Config',          section:'ระบบ',     roles:['admin'] },
   { key:'users',     icon:'users',    label:'จัดการผู้ใช้',     section:'ระบบ',     roles:['admin'] },
@@ -2476,7 +2755,7 @@ const NAV = [
 const VIEW_TITLES = {
   dashboard:'Ward Board', patients:'Patients', triage:'Triage', calc:'EOS Calculator',
   handoff:'Handoff Summary', alerts:'Alerts Log', schedule:'Schedule', abx:'ABX Approval',
-  records:'All Records', audit:'Audit Log', config:'Config', users:'จัดการผู้ใช้',
+  records:'All Records', metrics:'Quality Metrics', audit:'Audit Log', config:'Config', users:'จัดการผู้ใช้',
   patient:'Patient Detail',
 };
 
@@ -2555,7 +2834,7 @@ function App() {
     setView('dashboard'); setOpenHn(null);
   };
 
-  const handleApproveAbx = async (ts, decision, patientName) => {
+  const handleApproveAbx = async (ts, decision, patientName, overrideReason='') => {
     const label = decision==='stop' ? 'หยุด Antibiotic' : 'ต่อ Antibiotic';
     const txt = await showPin(`${label}\n${patientName||''}\nพิมพ์ "ยืนยัน" เพื่อยืนยัน`);
     setPinModal(null);
@@ -2564,9 +2843,10 @@ function App() {
     setVitals(arr => arr.map(v => v.ts===ts ? {
       ...v, abxApproved:true, abxDecision:decision,
       abxBy:session.name, abxAt:now,
+      abxReason: overrideReason,
       abxStartAt: decision==='continue' ? now : null,
     } : v));
-    EOS.auditLog('ABX_DECISION', `${decision.toUpperCase()} by ${session.name} ts:${ts}`);
+    EOS.auditLog('ABX_DECISION', `${decision.toUpperCase()} by ${session.name} reason:${overrideReason} ts:${ts}`);
   };
 
   // ── Nav counts ────────────────────────────────
@@ -2575,6 +2855,7 @@ function App() {
     const st = tpStatus(p, vitals);
     if (st.cat==='overdue'||st.cat==='soon') dueCount++;
     vitalsFor(p.hn, vitals).forEach(v => { if (evalVitals(v).some(i=>i.sev==='red')) alertCount++; });
+    if (EOS.evalTrend(p.hn, vitals).length > 0) alertCount++; // trend-based alert
   });
   const abxPending = vitals.filter(v => EOS.ABX_TPS.has(v.ageHr) && !v.abxApproved).length;
 
@@ -2584,6 +2865,8 @@ function App() {
     const last = vitalsFor(p.hn, vitals).slice(-1)[0];
     if (last && evalVitals(last).some(i=>i.sev==='red'))
       tickerItems.push({msg:`${p.name} · ${p.bed||p.hn} · ผิดปกติที่ ${last.ageHr}`, hn:p.hn});
+    const trends = EOS.evalTrend(p.hn, vitals);
+    if (trends.length) tickerItems.push({msg:`${p.bed||p.hn} · Trend: ${trends[0].txt}`, hn:p.hn});
     const st = tpStatus(p, vitals);
     if (st.cat==='overdue'&&!p.archived)
       tickerItems.push({msg:`${p.bed||p.hn} · เลยกำหนด ${st.tp}`, hn:p.hn});
@@ -2710,6 +2993,7 @@ function App() {
             {view==='schedule'  && <Schedule patients={patients} vitals={vitals} onOpenPatient={goPatient}/>}
             {view==='abx'       && <ABXApproval patients={patients} vitals={vitals} onApprove={handleApproveAbx} session={session}/>}
             {view==='records'   && <AllRecords patients={patients} vitals={vitals} session={session}/>}
+            {view==='metrics'   && <QualityMetrics patients={patients} vitals={vitals}/>}
             {view==='audit'     && <AuditLog session={session}/>}
             {view==='config'    && <Config session={session} patients={patients} vitals={vitals}/>}
             {view==='users'     && <UserManagement session={session}/>}

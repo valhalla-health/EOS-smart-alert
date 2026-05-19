@@ -37,6 +37,7 @@ const NAV = [
   { key:'schedule',  icon:'calendar', label:'Schedule',        section:'รายงาน',   roles:['doctor','nurse','admin'] },
   { key:'abx',       icon:'abx',      label:'ABX Approval',    section:'รายงาน',   roles:['doctor','admin'] },
   { key:'records',   icon:'list',     label:'All Records',     section:'ระบบ',     roles:['doctor','nurse','admin'] },
+  { key:'metrics',   icon:'chart',    label:'Quality Metrics', section:'ระบบ',     roles:['doctor','admin'] },
   { key:'audit',     icon:'eye',      label:'Audit Log',       section:'ระบบ',     roles:['admin'] },
   { key:'config',    icon:'cog',      label:'Config',          section:'ระบบ',     roles:['admin'] },
   { key:'users',     icon:'users',    label:'จัดการผู้ใช้',     section:'ระบบ',     roles:['admin'] },
@@ -45,7 +46,7 @@ const NAV = [
 const VIEW_TITLES = {
   dashboard:'Ward Board', patients:'Patients', triage:'Triage', calc:'EOS Calculator',
   handoff:'Handoff Summary', alerts:'Alerts Log', schedule:'Schedule', abx:'ABX Approval',
-  records:'All Records', audit:'Audit Log', config:'Config', users:'จัดการผู้ใช้',
+  records:'All Records', metrics:'Quality Metrics', audit:'Audit Log', config:'Config', users:'จัดการผู้ใช้',
   patient:'Patient Detail',
 };
 
@@ -124,7 +125,7 @@ function App() {
     setView('dashboard'); setOpenHn(null);
   };
 
-  const handleApproveAbx = async (ts, decision, patientName) => {
+  const handleApproveAbx = async (ts, decision, patientName, overrideReason='') => {
     const label = decision==='stop' ? 'หยุด Antibiotic' : 'ต่อ Antibiotic';
     const txt = await showPin(`${label}\n${patientName||''}\nพิมพ์ "ยืนยัน" เพื่อยืนยัน`);
     setPinModal(null);
@@ -133,9 +134,10 @@ function App() {
     setVitals(arr => arr.map(v => v.ts===ts ? {
       ...v, abxApproved:true, abxDecision:decision,
       abxBy:session.name, abxAt:now,
+      abxReason: overrideReason,
       abxStartAt: decision==='continue' ? now : null,
     } : v));
-    EOS.auditLog('ABX_DECISION', `${decision.toUpperCase()} by ${session.name} ts:${ts}`);
+    EOS.auditLog('ABX_DECISION', `${decision.toUpperCase()} by ${session.name} reason:${overrideReason} ts:${ts}`);
   };
 
   // ── Nav counts ────────────────────────────────
@@ -144,6 +146,7 @@ function App() {
     const st = tpStatus(p, vitals);
     if (st.cat==='overdue'||st.cat==='soon') dueCount++;
     vitalsFor(p.hn, vitals).forEach(v => { if (evalVitals(v).some(i=>i.sev==='red')) alertCount++; });
+    if (EOS.evalTrend(p.hn, vitals).length > 0) alertCount++; // trend-based alert
   });
   const abxPending = vitals.filter(v => EOS.ABX_TPS.has(v.ageHr) && !v.abxApproved).length;
 
@@ -153,6 +156,8 @@ function App() {
     const last = vitalsFor(p.hn, vitals).slice(-1)[0];
     if (last && evalVitals(last).some(i=>i.sev==='red'))
       tickerItems.push({msg:`${p.name} · ${p.bed||p.hn} · ผิดปกติที่ ${last.ageHr}`, hn:p.hn});
+    const trends = EOS.evalTrend(p.hn, vitals);
+    if (trends.length) tickerItems.push({msg:`${p.bed||p.hn} · Trend: ${trends[0].txt}`, hn:p.hn});
     const st = tpStatus(p, vitals);
     if (st.cat==='overdue'&&!p.archived)
       tickerItems.push({msg:`${p.bed||p.hn} · เลยกำหนด ${st.tp}`, hn:p.hn});
@@ -279,6 +284,7 @@ function App() {
             {view==='schedule'  && <Schedule patients={patients} vitals={vitals} onOpenPatient={goPatient}/>}
             {view==='abx'       && <ABXApproval patients={patients} vitals={vitals} onApprove={handleApproveAbx} session={session}/>}
             {view==='records'   && <AllRecords patients={patients} vitals={vitals} session={session}/>}
+            {view==='metrics'   && <QualityMetrics patients={patients} vitals={vitals}/>}
             {view==='audit'     && <AuditLog session={session}/>}
             {view==='config'    && <Config session={session} patients={patients} vitals={vitals}/>}
             {view==='users'     && <UserManagement session={session}/>}

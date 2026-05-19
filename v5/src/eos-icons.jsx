@@ -28,6 +28,7 @@ const ICON_PATHS = {
   x:          React.createElement('path',{d:'M6 6l12 12M18 6 6 18'}),
   signature:  React.createElement(React.Fragment,null,React.createElement('path',{d:'M3 17c4 0 4-10 8-10s4 10 8 10'}),React.createElement('path',{d:'M3 21h18'})),
   abx:        React.createElement(React.Fragment,null,React.createElement('circle',{cx:'12',cy:'12',r:'3'}),React.createElement('path',{d:'M12 3v3M12 18v3M3 12h3M18 12h3'})),
+  chart:      React.createElement(React.Fragment,null,React.createElement('polyline',{points:'22 12 18 12 15 21 9 3 6 12 2 12'})),
   lock:       React.createElement(React.Fragment,null,React.createElement('rect',{x:'3',y:'11',width:'18',height:'11',rx:'2'}),React.createElement('path',{d:'M7 11V7a5 5 0 0 1 10 0v4'})),
   users:      React.createElement(React.Fragment,null,React.createElement('circle',{cx:'9',cy:'8',r:'3.5'}),React.createElement('path',{d:'M3 21c0-3.3 2.7-6 6-6s6 2.7 6 6'}),React.createElement('circle',{cx:'17',cy:'7',r:'2.5'}),React.createElement('path',{d:'M15 14c2 0 6 1 6 5'})),
   refresh:    React.createElement(React.Fragment,null,React.createElement('polyline',{points:'23 4 23 10 17 10'}),React.createElement('path',{d:'M20.5 15a9 9 0 1 1-2.2-9.2L23 10'})),
