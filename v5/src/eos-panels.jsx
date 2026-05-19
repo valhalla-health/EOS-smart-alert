@@ -759,12 +759,21 @@ function Calculator() {
   const dispTemp = p.maternalTempC;
   const dispTempF = toF(dispTemp);
 
-  const birthRisk = useMemo(() => calcEOSRisk({...p, version:ver}), [p, ver]);
-  const table     = useMemo(() => EOS.calcEOSTable(birthRisk), [birthRisk]);
-  const cat       = riskCategory(birthRisk);
+  // Calculate on demand — not auto
+  const [result, setResult] = useState(null);
+  const doCalculate = () => {
+    const risk = calcEOSRisk({...p, version:ver});
+    setResult({ risk, table: EOS.calcEOSTable(risk), cat: riskCategory(risk) });
+    EOS.auditLog('EOS_CALC', `GA ${p.gaWeeks}w${p.gaDays}d GBS:${p.gbsStatus} IAP:${p.iapType} risk:${risk}`);
+  };
+  const doClear = () => setResult(null);
 
-  const pct = Math.min(1, birthRisk / 5);
-  const gc  = birthRisk >= 3 ? 'var(--red)' : birthRisk >= 1 ? 'var(--amber)' : 'var(--teal)';
+  const birthRisk = result?.risk ?? null;
+  const table     = result?.table ?? null;
+  const cat       = result?.cat   ?? null;
+
+  const pct = Math.min(1, (birthRisk||0) / 5);
+  const gc  = (birthRisk||0) >= 3 ? 'var(--red)' : (birthRisk||0) >= 1 ? 'var(--amber)' : 'var(--teal)';
 
   const IAP_OPTIONS = [
     { k:'broad_4plus', l:'Broad spectrum antibiotics > 4 hr before delivery' },
@@ -795,6 +804,15 @@ function Calculator() {
             </label>
           ))}
         </div>
+      </div>
+
+      {/* Calculate / Clear buttons */}
+      <div style={{display:'flex',gap:10,marginBottom:18}}>
+        <button className="btn btn-primary" style={{fontSize:15,padding:'12px 28px',minWidth:160}} onClick={doCalculate}>
+          <Icon name="calc"/>Calculate »
+        </button>
+        <button className="btn btn-ghost" onClick={doClear}>Clear</button>
+        {result && <span style={{alignSelf:'center',fontSize:12,color:'var(--text-3)'}}>คำนวณเมื่อ {EOS.fmtTime(new Date().toISOString())}</span>}
       </div>
 
       <div className="calc-grid">
@@ -879,6 +897,16 @@ function Calculator() {
 
         {/* ── RIGHT: Results ── */}
         <div>
+          {!result && (
+            <div className="card" style={{textAlign:'center',padding:'60px 20px',color:'var(--text-3)'}}>
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" style={{opacity:.3,marginBottom:16}}>
+                <rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 7h8M8 12h.01M12 12h.01M16 12h.01M8 16h.01M12 16h.01M16 16h.01"/>
+              </svg>
+              <div style={{fontSize:15,fontWeight:600,marginBottom:6,color:'var(--text-2)'}}>กรอกข้อมูลแล้วกด Calculate »</div>
+              <div style={{fontSize:12}}>ผลลัพธ์จะแสดงที่นี่</div>
+            </div>
+          )}
+          {result && (<>
           {/* Gauge */}
           <div className="gauge-card">
             <div className="lbl mb-4" style={{textAlign:'center'}}>EOS Risk @ Birth</div>
@@ -967,6 +995,7 @@ function Calculator() {
               </div>
             )}
           </div>
+          </>)}
         </div>
       </div>
     </div>
