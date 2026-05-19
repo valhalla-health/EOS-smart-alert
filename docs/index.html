@@ -615,6 +615,67 @@ h3 .num { display:inline-flex; align-items:center; justify-content:center; width
   .mobile-more-backdrop { display:flex; }
 }
 
+/* ══════════════════════════════════════════════════
+   BOARD TAB SWITCHER — mobile only
+══════════════════════════════════════════════════ */
+.board-tabs { display:none; }
+.board-col-hidden { display:none; }
+
+@media (max-width:640px) {
+  /* Show tab switcher, hide inactive columns */
+  .board-tabs {
+    display:flex; overflow-x:auto; scrollbar-width:none;
+    border-bottom:1px solid var(--border); margin-bottom:12px;
+    -webkit-overflow-scrolling:touch;
+  }
+  .board-tabs::-webkit-scrollbar { display:none; }
+  .board-tab {
+    flex:1; min-width:72px; padding:10px 8px 10px;
+    font-size:13px; font-weight:600; color:var(--text-3);
+    border:none; background:none; cursor:pointer;
+    border-bottom:2px solid transparent;
+    display:flex; flex-direction:column; align-items:center; gap:3px;
+    transition:color .12s;
+  }
+  .board-tab.active { color:var(--text); }
+  .board-tab-count {
+    display:inline-flex; align-items:center; justify-content:center;
+    min-width:20px; height:20px; border-radius:10px;
+    background:var(--surface-3); font-size:11px; font-weight:700;
+    padding:0 5px;
+  }
+  .board-tab-count.urgent { background:var(--red-tint); color:var(--red-2); }
+
+  /* Board: single active column full-width */
+  .board { display:block; overflow-x:unset; scroll-snap-type:unset; }
+  .board-col { min-width:unset; width:100%; }
+  .board-col-hidden { display:none !important; }
+
+  /* ── Labels: readable on mobile ─────────────────── */
+  .field label, label.lbl {
+    font-size:13px; text-transform:none; letter-spacing:0; font-weight:600;
+  }
+  /* Stat labels */
+  .stat .lbl { font-size:12px; text-transform:none; letter-spacing:0; }
+
+  /* ── Table headers ───────────────────────────────── */
+  table.eos th { font-size:11px; text-transform:none; letter-spacing:0; }
+
+  /* ── PE Form vitals: keep 2×2 on mobile ─────────── */
+  .row-4 { grid-template-columns:1fr 1fr !important; }
+
+  /* ── Alert ticker: no animation on mobile ────────── */
+  .alert-ticker .messages { overflow:hidden; }
+  .alert-ticker .messages span { animation:none; white-space:normal; font-size:13px; line-height:1.4; }
+  .alert-ticker { flex-wrap:wrap; padding:10px 14px; gap:8px; cursor:pointer; }
+  .alert-ticker .label { flex-shrink:0; }
+
+  /* ── Page head compact ───────────────────────────── */
+  .page-head { margin-bottom:14px; }
+  .page-head h1 { font-size:17px; }
+  .page-head .right { margin-top:0; }
+}
+
 </style>
 </head>
 <body>
@@ -1401,7 +1462,10 @@ function PatientCard({ patient: p, vitals, onClick }) {
 // ══════════════════════════════════════════════════
 
 function Dashboard({ patients, vitals, onOpenPatient, onGo }) {
-  const stats = useMemo(() => {
+  const { useState: useStateD, useMemo: useMemoD } = React;
+  const [activeCol, setActiveCol] = useStateD('overdue');
+
+  const stats = useMemoD(() => {
     let overdue=0, soon=0, ok=0, done=0, alerts=0;
     patients.forEach(p => {
       const st = tpStatus(p, vitals);
@@ -1415,10 +1479,10 @@ function Dashboard({ patients, vitals, onOpenPatient, onGo }) {
   }, [patients, vitals]);
 
   const cols = [
-    { key:'overdue', label:'เลยกำหนด', en:'OVERDUE' },
-    { key:'soon',    label:'ใกล้ครบ',   en:'DUE SOON' },
-    { key:'ok',      label:'ปกติ',      en:'ON TRACK' },
-    { key:'done',    label:'เสร็จสิ้น', en:'COMPLETE' },
+    { key:'overdue', label:'เลยกำหนด', en:'Overdue',  dot:'red'   },
+    { key:'soon',    label:'ใกล้ครบ',   en:'Due Soon', dot:'amber' },
+    { key:'ok',      label:'ปกติ',      en:'On Track', dot:'teal'  },
+    { key:'done',    label:'เสร็จสิ้น', en:'Done',     dot:'green' },
   ];
 
   return (
@@ -1440,22 +1504,41 @@ function Dashboard({ patients, vitals, onOpenPatient, onGo }) {
         <div className="stat green"><div className="accent"/><div className="lbl">ครบ 7 Timepoints</div><div className="val">{stats.done}</div><div className="trend">Serial PE เสร็จสิ้น 44 hr</div></div>
       </div>
 
+      {/* ── Mobile tab switcher (hidden on desktop via CSS) ── */}
+      <div className="board-tabs">
+        {cols.map(col => {
+          const cnt = patients.filter(p=>tpStatus(p,vitals).cat===col.key).length;
+          return (
+            <button key={col.key}
+              className={`board-tab${activeCol===col.key?' active':''}`}
+              style={activeCol===col.key?{borderBottomColor:`var(--${col.dot})`}:{}}
+              onClick={()=>setActiveCol(col.key)}>
+              {col.en}
+              {cnt>0&&<span className={`board-tab-count${col.key==='overdue'||col.key==='soon'?' urgent':''}`}>{cnt}</span>}
+            </button>
+          );
+        })}
+      </div>
+
       <div className="board">
-        {cols.map(col => (
-          <div key={col.key} className={`board-col ${col.key}`}>
-            <div className="board-col-head">
-              <span className={`dot-status ${col.key==='overdue'?'red':col.key==='soon'?'amber':col.key==='ok'?'teal':'green'}`}/>
-              <span className="title" style={col.key==='overdue'?{color:'var(--red)',fontWeight:800}:{}}>{col.label} · {col.en}</span>
-              <span className="count">{patients.filter(p=>tpStatus(p,vitals).cat===col.key).length}</span>
+        {cols.map(col => {
+          const colPts = patients.filter(p=>tpStatus(p,vitals).cat===col.key);
+          return (
+            <div key={col.key} className={`board-col ${col.key}${activeCol!==col.key?' board-col-hidden':''}`}>
+              <div className="board-col-head">
+                <span className={`dot-status ${col.dot}`}/>
+                <span className="title" style={col.key==='overdue'?{color:'var(--red)',fontWeight:800}:{}}>{col.label}</span>
+                <span className="count">{colPts.length}</span>
+              </div>
+              {colPts.map(p => (
+                <PatientCard key={p.hn} patient={p} vitals={vitals} onClick={() => onOpenPatient(p.hn)}/>
+              ))}
+              {colPts.length===0 && (
+                <div style={{padding:'32px 12px',textAlign:'center',color:'var(--text-4)',fontSize:13}}>— ไม่มีเคส —</div>
+              )}
             </div>
-            {patients.filter(p=>tpStatus(p,vitals).cat===col.key).map(p => (
-              <PatientCard key={p.hn} patient={p} vitals={vitals} onClick={() => onOpenPatient(p.hn)}/>
-            ))}
-            {patients.filter(p=>tpStatus(p,vitals).cat===col.key).length===0 && (
-              <div style={{padding:'32px 12px',textAlign:'center',color:'var(--text-4)',fontSize:13}}>— ไม่มีเคส —</div>
-            )}
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
@@ -2110,15 +2193,6 @@ function Calculator() {
         </div>
       </div>
 
-      {/* Calculate / Clear buttons */}
-      <div style={{display:'flex',gap:10,marginBottom:18}}>
-        <button className="btn btn-primary" style={{fontSize:15,padding:'12px 28px',minWidth:160}} onClick={doCalculate}>
-          <Icon name="calc"/>Calculate »
-        </button>
-        <button className="btn btn-ghost" onClick={doClear}>Clear</button>
-        {result && <span style={{alignSelf:'center',fontSize:12,color:'var(--text-3)'}}>คำนวณเมื่อ {EOS.fmtTime(new Date().toISOString())}</span>}
-      </div>
-
       <div className="calc-grid">
         {/* ── LEFT: Inputs ── */}
         <div className="card">
@@ -2196,6 +2270,14 @@ function Calculator() {
                 </label>
               ))}
             </div>
+          </div>
+
+          {/* Calculate / Clear — bottom of inputs card */}
+          <div style={{display:'flex',gap:10,marginTop:20,paddingTop:16,borderTop:'1px solid var(--border)'}}>
+            <button className="btn btn-primary" style={{flex:1,justifyContent:'center',fontSize:15,minHeight:52}} onClick={doCalculate}>
+              <Icon name="calc"/>Calculate »
+            </button>
+            <button className="btn btn-ghost" style={{minHeight:52,minWidth:80}} onClick={doClear}>Clear</button>
           </div>
         </div>
 

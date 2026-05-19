@@ -603,3 +603,64 @@ h3 .num { display:inline-flex; align-items:center; justify-content:center; width
   .mobile-tab-bar { display:flex; }
   .mobile-more-backdrop { display:flex; }
 }
+
+/* ══════════════════════════════════════════════════
+   BOARD TAB SWITCHER — mobile only
+══════════════════════════════════════════════════ */
+.board-tabs { display:none; }
+.board-col-hidden { display:none; }
+
+@media (max-width:640px) {
+  /* Show tab switcher, hide inactive columns */
+  .board-tabs {
+    display:flex; overflow-x:auto; scrollbar-width:none;
+    border-bottom:1px solid var(--border); margin-bottom:12px;
+    -webkit-overflow-scrolling:touch;
+  }
+  .board-tabs::-webkit-scrollbar { display:none; }
+  .board-tab {
+    flex:1; min-width:72px; padding:10px 8px 10px;
+    font-size:13px; font-weight:600; color:var(--text-3);
+    border:none; background:none; cursor:pointer;
+    border-bottom:2px solid transparent;
+    display:flex; flex-direction:column; align-items:center; gap:3px;
+    transition:color .12s;
+  }
+  .board-tab.active { color:var(--text); }
+  .board-tab-count {
+    display:inline-flex; align-items:center; justify-content:center;
+    min-width:20px; height:20px; border-radius:10px;
+    background:var(--surface-3); font-size:11px; font-weight:700;
+    padding:0 5px;
+  }
+  .board-tab-count.urgent { background:var(--red-tint); color:var(--red-2); }
+
+  /* Board: single active column full-width */
+  .board { display:block; overflow-x:unset; scroll-snap-type:unset; }
+  .board-col { min-width:unset; width:100%; }
+  .board-col-hidden { display:none !important; }
+
+  /* ── Labels: readable on mobile ─────────────────── */
+  .field label, label.lbl {
+    font-size:13px; text-transform:none; letter-spacing:0; font-weight:600;
+  }
+  /* Stat labels */
+  .stat .lbl { font-size:12px; text-transform:none; letter-spacing:0; }
+
+  /* ── Table headers ───────────────────────────────── */
+  table.eos th { font-size:11px; text-transform:none; letter-spacing:0; }
+
+  /* ── PE Form vitals: keep 2×2 on mobile ─────────── */
+  .row-4 { grid-template-columns:1fr 1fr !important; }
+
+  /* ── Alert ticker: no animation on mobile ────────── */
+  .alert-ticker .messages { overflow:hidden; }
+  .alert-ticker .messages span { animation:none; white-space:normal; font-size:13px; line-height:1.4; }
+  .alert-ticker { flex-wrap:wrap; padding:10px 14px; gap:8px; cursor:pointer; }
+  .alert-ticker .label { flex-shrink:0; }
+
+  /* ── Page head compact ───────────────────────────── */
+  .page-head { margin-bottom:14px; }
+  .page-head h1 { font-size:17px; }
+  .page-head .right { margin-top:0; }
+}
