@@ -65,6 +65,7 @@ function App() {
   const [pinModal, setPinModal] = useState(null);   // {msg, resolve}
   const [, tick]          = useState(0);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [moreOpen,    setMoreOpen]    = useState(false); // mobile "More" drawer
 
   // ── Effects ───────────────────────────────────
   useEffect(() => { EOS.setStore(EOS.STORE.patients, patients); }, [patients]);
@@ -313,6 +314,62 @@ function App() {
           onConfirm={txt => { pinModal.resolve(txt); setPinModal(null); }}
           onCancel={()  => { pinModal.resolve(null); setPinModal(null); }}
         />
+      )}
+
+      {/* ─── MOBILE BOTTOM TAB BAR ──────────────── */}
+      <nav className="mobile-tab-bar">
+        {[
+          { key:'dashboard', icon:'board',    label:'Ward'    },
+          { key:'patients',  icon:'patients', label:'Patients'},
+          { key:'triage',    icon:'triage',   label:'Triage'  },
+          { key:'alerts',    icon:'bell',     label:'Alerts'  },
+        ].map(t => {
+          if (!navItems.find(n=>n.key===t.key)) return null;
+          const active = view===t.key||(t.key==='dashboard'&&view==='patient');
+          const badge = t.key==='alerts' ? alertCount : 0;
+          return (
+            <button key={t.key}
+              className={`mobile-tab${active?' active':''}`}
+              onClick={()=>{ setView(t.key); setOpenHn(null); setMoreOpen(false); }}>
+              <span className="mobile-tab-icon">
+                <Icon name={t.icon} size={22}/>
+                {badge>0 && <span className="mobile-tab-badge">{badge}</span>}
+              </span>
+              <span className="mobile-tab-label">{t.label}</span>
+            </button>
+          );
+        })}
+        {/* More button */}
+        <button className={`mobile-tab${moreOpen?' active':''}`} onClick={()=>setMoreOpen(o=>!o)}>
+          <span className="mobile-tab-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="5" cy="12" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="19" cy="12" r="1.5" fill="currentColor"/>
+            </svg>
+          </span>
+          <span className="mobile-tab-label">More</span>
+        </button>
+      </nav>
+
+      {/* ─── MOBILE MORE DRAWER ─────────────────── */}
+      {moreOpen && (
+        <div className="mobile-more-backdrop" onClick={()=>setMoreOpen(false)}>
+          <div className="mobile-more-sheet" onClick={e=>e.stopPropagation()}>
+            <div className="mobile-more-handle"/>
+            <div style={{fontSize:11,fontWeight:700,color:'var(--text-3)',letterSpacing:.8,textTransform:'uppercase',padding:'0 16px 10px'}}>เมนูทั้งหมด</div>
+            {navItems.filter(n=>!['dashboard','patients','triage','alerts'].includes(n.key)).map(n=>(
+              <button key={n.key} className="mobile-more-item"
+                onClick={()=>{ setView(n.key); setOpenHn(null); setMoreOpen(false); }}>
+                <span style={{color:view===n.key?'var(--teal)':'var(--text-2)'}}><Icon name={n.icon} size={20}/></span>
+                <span style={{flex:1,fontSize:15,fontWeight:view===n.key?700:400,color:view===n.key?'var(--teal)':'var(--text)'}}>{n.label}</span>
+                {view===n.key && <span className="badge badge-teal" style={{fontSize:10}}>●</span>}
+              </button>
+            ))}
+            {/* Logout */}
+            <button className="mobile-more-item" style={{borderTop:'1px solid var(--border)',marginTop:8,color:'var(--red)'}} onClick={doLogout}>
+              <Icon name="logout" size={20} style={{color:'var(--red)'}}/> <span style={{fontSize:15,color:'var(--red)'}}>ออกจากระบบ</span>
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );
