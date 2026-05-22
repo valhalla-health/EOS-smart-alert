@@ -664,17 +664,45 @@ h3 .num { display:inline-flex; align-items:center; justify-content:center; width
   /* ── PE Form vitals: keep 2×2 on mobile ─────────── */
   .row-4 { grid-template-columns:1fr 1fr !important; }
 
-  /* ── Alert ticker: no animation on mobile ────────── */
-  .alert-ticker .messages { overflow:hidden; }
-  .alert-ticker .messages span { animation:none; white-space:normal; font-size:13px; line-height:1.4; }
-  .alert-ticker { flex-wrap:wrap; padding:10px 14px; gap:8px; cursor:pointer; }
-  .alert-ticker .label { flex-shrink:0; }
+  /* ── Alert ticker: compact single line on mobile ─── */
+  .alert-ticker { flex-wrap:nowrap; padding:7px 12px; gap:8px; cursor:pointer; align-items:center; }
+  .alert-ticker .label { flex-shrink:0; font-size:10px; }
+  .alert-ticker .messages { overflow:hidden; flex:1; min-width:0; }
+  .alert-ticker .messages span { animation:none; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:block; font-size:12px; }
 
-  /* ── Page head compact ───────────────────────────── */
-  .page-head { margin-bottom:14px; }
-  .page-head h1 { font-size:17px; }
-  .page-head .right { margin-top:0; }
+  /* ── Page head: hide duplicate h1 (topbar shows it) */
+  .page-head h1 { display:none; }
+  .page-head { margin-bottom:10px; align-items:center; flex-wrap:nowrap; gap:8px; }
+  .page-head > div:first-child { flex:1; min-width:0; }
+  .page-head .sub { font-size:11px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .page-head .right { margin-top:0 !important; flex-shrink:0; }
+
+  /* ── Patient list: hide desktop table, show mobile cards */
+  .pt-desktop-table { display:none !important; }
+  .pt-mobile-list { display:flex !important; }
 }
+
+/* ── PATIENT MOBILE CARDS ─────────────────────────── */
+.pt-mobile-list {
+  display:none;
+  flex-direction:column; gap:8px;
+  padding:4px 0;
+}
+.pt-mc {
+  background:var(--surface); border:1px solid var(--border); border-radius:12px;
+  padding:12px 14px; cursor:pointer;
+  transition:box-shadow .12s, border-color .12s;
+  display:flex; flex-direction:column; gap:8px;
+}
+.pt-mc:active { border-color:var(--teal); box-shadow:0 0 0 3px var(--teal-tint); }
+.pt-mc-top { display:flex; align-items:center; gap:8px; }
+.pt-mc-name { flex:1; min-width:0; }
+.pt-mc-baby { font-size:14px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.pt-mc-mother { font-size:11px; color:var(--text-3); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.pt-mc-meta { display:flex; gap:14px; font-size:12px; color:var(--text-2); flex-wrap:wrap; }
+.pt-mc-meta .mono { font-family:'IBM Plex Mono',monospace; }
+.pt-mc-foot { display:flex; align-items:center; justify-content:space-between; font-size:12px; }
+.pt-mc-bed { font-size:11px; font-weight:600; color:var(--text-3); font-family:'IBM Plex Mono',monospace; flex-shrink:0; }
 
 </style>
 </head>
@@ -1939,7 +1967,8 @@ function PatientList({ patients, vitals, onOpenPatient }) {
           </div>
         </div>
       </div>
-      <div className="card" style={{padding:0,overflow:'auto'}}>
+      {/* Desktop table */}
+      <div className="card pt-desktop-table" style={{padding:0,overflow:'auto'}}>
         <table className="eos">
           <thead><tr><th>สถานะ</th><th>ชื่อ / มารดา</th><th>HN</th><th>เตียง</th><th>GA</th><th>BW</th><th>อายุ</th><th>EOS Risk</th><th>ถัดไป / สถานะ</th><th></th></tr></thead>
           <tbody>
@@ -1965,6 +1994,39 @@ function PatientList({ patients, vitals, onOpenPatient }) {
             {filtered.length===0&&<tr><td colSpan={10} style={{textAlign:'center',padding:32,color:'var(--text-3)'}}>ไม่พบรายการ</td></tr>}
           </tbody>
         </table>
+      </div>
+
+      {/* Mobile card list */}
+      <div className="pt-mobile-list">
+        {filtered.map(p => {
+          const st = tpStatus(p, vitals);
+          const cal = calcEOSRisk({gaWeeks:Math.floor(p.ga||39),gaDays:Math.round(((p.ga||39)%1)*7),romHours:p.intake?.rom||0,maternalTempC:p.intake?.fever||37,gbsStatus:p.intake?.gbs||'unk',iapType:p.intake?.iap==='adequate'?'broad_4plus':p.intake?.iap==='partial'?'broad_2to4':'none',incidence:0.5,version:'2024'});
+          const cat = riskCategory(cal);
+          const statusColor = st.cat==='overdue'?'var(--red)':st.cat==='soon'?'var(--amber)':'var(--text-3)';
+          return (
+            <div key={p.hn} className="pt-mc" onClick={()=>onOpenPatient(p.hn)}>
+              <div className="pt-mc-top">
+                <StatusDot patient={p} vitals={vitals}/>
+                <div className="pt-mc-name">
+                  <div className="pt-mc-baby">{p.name.replace('Baby ของ ','')}</div>
+                  <div className="pt-mc-mother">{p.motherName}</div>
+                </div>
+                <span className="pt-mc-bed">{p.bed||p.hn}</span>
+              </div>
+              <div className="pt-mc-meta">
+                <span>GA <span className="mono">{p.ga}</span> wk</span>
+                <span>BW <span className="mono">{p.bw}</span> g</span>
+                <span>อายุ <span className="mono">{ageHours(p)}</span> hr</span>
+                <span className={`badge badge-${cat.badge}`} style={{fontSize:11}}>{cal.toFixed(2)} · {cat.en}</span>
+              </div>
+              <div className="pt-mc-foot">
+                <span style={{color:'var(--text-3)'}}>HN <span className="mono">{p.hn}</span></span>
+                <span style={{color:statusColor,fontWeight:600}}>{st.label||'✓ เสร็จสิ้น'}</span>
+              </div>
+            </div>
+          );
+        })}
+        {filtered.length===0 && <div style={{textAlign:'center',padding:'32px 0',color:'var(--text-3)'}}>ไม่พบรายการ</div>}
       </div>
     </div>
   );
@@ -3078,7 +3140,16 @@ function App() {
 
   // ── State ─────────────────────────────────────
   // เริ่มต้นด้วย null เสมอ — บังคับ login ทุกครั้งที่โหลดหน้า
-  const [session, setSession]   = useState(null);
+  // ยกเว้น ?demo=1 → ข้าม login สำหรับ UI testing
+  const [session, setSession]   = useState(() => {
+    if (new URLSearchParams(location.search).get('demo') === '1') {
+      EOS.seedDemoData();
+      const s = { email:'demo@eos.local', name:'Dr. Demo', role:'doctor', loginAt: EOS.nowISO(), token: null };
+      EOS.setSession(s);
+      return s;
+    }
+    return null;
+  });
   const [view,    setView]      = useState('dashboard');
   const [openHn,  setOpenHn]    = useState(null);
   const [patients, setPatients] = useState(() => EOS.getStore(EOS.STORE.patients, []));

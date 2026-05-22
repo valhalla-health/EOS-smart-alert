@@ -56,7 +56,16 @@ function App() {
 
   // ── State ─────────────────────────────────────
   // เริ่มต้นด้วย null เสมอ — บังคับ login ทุกครั้งที่โหลดหน้า
-  const [session, setSession]   = useState(null);
+  // ยกเว้น ?demo=1 → ข้าม login สำหรับ UI testing
+  const [session, setSession]   = useState(() => {
+    if (new URLSearchParams(location.search).get('demo') === '1') {
+      EOS.seedDemoData();
+      const s = { email:'demo@eos.local', name:'Dr. Demo', role:'doctor', loginAt: EOS.nowISO(), token: null };
+      EOS.setSession(s);
+      return s;
+    }
+    return null;
+  });
   const [view,    setView]      = useState('dashboard');
   const [openHn,  setOpenHn]    = useState(null);
   const [patients, setPatients] = useState(() => EOS.getStore(EOS.STORE.patients, []));

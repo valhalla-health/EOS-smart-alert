@@ -521,7 +521,8 @@ function PatientList({ patients, vitals, onOpenPatient }) {
           </div>
         </div>
       </div>
-      <div className="card" style={{padding:0,overflow:'auto'}}>
+      {/* Desktop table */}
+      <div className="card pt-desktop-table" style={{padding:0,overflow:'auto'}}>
         <table className="eos">
           <thead><tr><th>สถานะ</th><th>ชื่อ / มารดา</th><th>HN</th><th>เตียง</th><th>GA</th><th>BW</th><th>อายุ</th><th>EOS Risk</th><th>ถัดไป / สถานะ</th><th></th></tr></thead>
           <tbody>
@@ -547,6 +548,39 @@ function PatientList({ patients, vitals, onOpenPatient }) {
             {filtered.length===0&&<tr><td colSpan={10} style={{textAlign:'center',padding:32,color:'var(--text-3)'}}>ไม่พบรายการ</td></tr>}
           </tbody>
         </table>
+      </div>
+
+      {/* Mobile card list */}
+      <div className="pt-mobile-list">
+        {filtered.map(p => {
+          const st = tpStatus(p, vitals);
+          const cal = calcEOSRisk({gaWeeks:Math.floor(p.ga||39),gaDays:Math.round(((p.ga||39)%1)*7),romHours:p.intake?.rom||0,maternalTempC:p.intake?.fever||37,gbsStatus:p.intake?.gbs||'unk',iapType:p.intake?.iap==='adequate'?'broad_4plus':p.intake?.iap==='partial'?'broad_2to4':'none',incidence:0.5,version:'2024'});
+          const cat = riskCategory(cal);
+          const statusColor = st.cat==='overdue'?'var(--red)':st.cat==='soon'?'var(--amber)':'var(--text-3)';
+          return (
+            <div key={p.hn} className="pt-mc" onClick={()=>onOpenPatient(p.hn)}>
+              <div className="pt-mc-top">
+                <StatusDot patient={p} vitals={vitals}/>
+                <div className="pt-mc-name">
+                  <div className="pt-mc-baby">{p.name.replace('Baby ของ ','')}</div>
+                  <div className="pt-mc-mother">{p.motherName}</div>
+                </div>
+                <span className="pt-mc-bed">{p.bed||p.hn}</span>
+              </div>
+              <div className="pt-mc-meta">
+                <span>GA <span className="mono">{p.ga}</span> wk</span>
+                <span>BW <span className="mono">{p.bw}</span> g</span>
+                <span>อายุ <span className="mono">{ageHours(p)}</span> hr</span>
+                <span className={`badge badge-${cat.badge}`} style={{fontSize:11}}>{cal.toFixed(2)} · {cat.en}</span>
+              </div>
+              <div className="pt-mc-foot">
+                <span style={{color:'var(--text-3)'}}>HN <span className="mono">{p.hn}</span></span>
+                <span style={{color:statusColor,fontWeight:600}}>{st.label||'✓ เสร็จสิ้น'}</span>
+              </div>
+            </div>
+          );
+        })}
+        {filtered.length===0 && <div style={{textAlign:'center',padding:'32px 0',color:'var(--text-3)'}}>ไม่พบรายการ</div>}
       </div>
     </div>
   );

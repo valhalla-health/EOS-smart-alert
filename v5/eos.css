@@ -653,14 +653,42 @@ h3 .num { display:inline-flex; align-items:center; justify-content:center; width
   /* ── PE Form vitals: keep 2×2 on mobile ─────────── */
   .row-4 { grid-template-columns:1fr 1fr !important; }
 
-  /* ── Alert ticker: no animation on mobile ────────── */
-  .alert-ticker .messages { overflow:hidden; }
-  .alert-ticker .messages span { animation:none; white-space:normal; font-size:13px; line-height:1.4; }
-  .alert-ticker { flex-wrap:wrap; padding:10px 14px; gap:8px; cursor:pointer; }
-  .alert-ticker .label { flex-shrink:0; }
+  /* ── Alert ticker: compact single line on mobile ─── */
+  .alert-ticker { flex-wrap:nowrap; padding:7px 12px; gap:8px; cursor:pointer; align-items:center; }
+  .alert-ticker .label { flex-shrink:0; font-size:10px; }
+  .alert-ticker .messages { overflow:hidden; flex:1; min-width:0; }
+  .alert-ticker .messages span { animation:none; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:block; font-size:12px; }
 
-  /* ── Page head compact ───────────────────────────── */
-  .page-head { margin-bottom:14px; }
-  .page-head h1 { font-size:17px; }
-  .page-head .right { margin-top:0; }
+  /* ── Page head: hide duplicate h1 (topbar shows it) */
+  .page-head h1 { display:none; }
+  .page-head { margin-bottom:10px; align-items:center; flex-wrap:nowrap; gap:8px; }
+  .page-head > div:first-child { flex:1; min-width:0; }
+  .page-head .sub { font-size:11px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .page-head .right { margin-top:0 !important; flex-shrink:0; }
+
+  /* ── Patient list: hide desktop table, show mobile cards */
+  .pt-desktop-table { display:none !important; }
+  .pt-mobile-list { display:flex !important; }
 }
+
+/* ── PATIENT MOBILE CARDS ─────────────────────────── */
+.pt-mobile-list {
+  display:none;
+  flex-direction:column; gap:8px;
+  padding:4px 0;
+}
+.pt-mc {
+  background:var(--surface); border:1px solid var(--border); border-radius:12px;
+  padding:12px 14px; cursor:pointer;
+  transition:box-shadow .12s, border-color .12s;
+  display:flex; flex-direction:column; gap:8px;
+}
+.pt-mc:active { border-color:var(--teal); box-shadow:0 0 0 3px var(--teal-tint); }
+.pt-mc-top { display:flex; align-items:center; gap:8px; }
+.pt-mc-name { flex:1; min-width:0; }
+.pt-mc-baby { font-size:14px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.pt-mc-mother { font-size:11px; color:var(--text-3); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.pt-mc-meta { display:flex; gap:14px; font-size:12px; color:var(--text-2); flex-wrap:wrap; }
+.pt-mc-meta .mono { font-family:'IBM Plex Mono',monospace; }
+.pt-mc-foot { display:flex; align-items:center; justify-content:space-between; font-size:12px; }
+.pt-mc-bed { font-size:11px; font-weight:600; color:var(--text-3); font-family:'IBM Plex Mono',monospace; flex-shrink:0; }
