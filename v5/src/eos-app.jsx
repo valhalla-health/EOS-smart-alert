@@ -10,7 +10,7 @@ function PinModal({ msg, onConfirm, onCancel }) {
         <h3>🔒 ยืนยันการดำเนินการ</h3>
         <div className="sub">{msg}</div>
         <input
-          type="text" value={txt} onChange={e=>setTxt(e.target.value)}
+          type="password" value={txt} onChange={e=>setTxt(e.target.value)}
           onKeyDown={e=>e.key==='Enter'&&onConfirm(txt)}
           placeholder="พิมพ์ข้อความยืนยัน" autoFocus
           style={{width:'100%',padding:'10px 13px',border:'1.5px solid var(--border-2)',borderRadius:8,fontSize:16,textAlign:'center',letterSpacing:2,marginBottom:14,fontFamily:'IBM Plex Mono, monospace',outline:'none'}}
@@ -59,13 +59,14 @@ function App() {
   const [session, setSession]   = useState(null);
   const [view,    setView]      = useState('dashboard');
   const [openHn,  setOpenHn]    = useState(null);
-  const [patients, setPatients] = useState(() => { EOS.seedDemoData(); return EOS.getStore(EOS.STORE.patients, []); });
+  const [patients, setPatients] = useState(() => EOS.getStore(EOS.STORE.patients, []));
   const [vitals,   setVitals]   = useState(() => EOS.getStore(EOS.STORE.vitals, []));
   const [peTarget, setPeTarget] = useState(null);
   const [pinModal, setPinModal] = useState(null);   // {msg, resolve}
   const [, tick]          = useState(0);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [moreOpen,    setMoreOpen]    = useState(false); // mobile "More" drawer
+  const [gasLoading,  setGasLoading]  = useState(false);
 
   // ── Effects ───────────────────────────────────
   useEffect(() => { EOS.setStore(EOS.STORE.patients, patients); }, [patients]);
@@ -82,7 +83,23 @@ function App() {
 
   // ── Not logged in ──────────────────────────────
   if (!session) {
-    return <LoginScreen onLogin={sess => { setSession(sess); setView('dashboard'); }}/>;
+    const handleLogin = async sess => {
+      setSession(sess);
+      setView('dashboard');
+      setGasLoading(true);
+      try {
+        const result = await EOS.loadFromGAS(sess.token);
+        if (result.ok) {
+          EOS.setStore(EOS.STORE.patients, result.patients);
+          EOS.setStore(EOS.STORE.vitals,   result.vitals);
+          setPatients(result.patients);
+          setVitals(result.vitals);
+        }
+      } finally {
+        setGasLoading(false);
+      }
+    };
+    return <LoginScreen onLogin={handleLogin}/>;
   }
 
   const rc = EOS.ROLE_CFG[session.role];
@@ -126,19 +143,21 @@ function App() {
     setView('dashboard'); setOpenHn(null);
   };
 
-  const handleApproveAbx = async (ts, decision, patientName, overrideReason='') => {
+  const handleApproveAbx = async (ts, decision, patientName, overrideReason='', abxActualStart=null) => {
     const label = decision==='stop' ? 'หยุด Antibiotic' : 'ต่อ Antibiotic';
     const txt = await showPin(`${label}\n${patientName||''}\nพิมพ์ "ยืนยัน" เพื่อยืนยัน`);
     setPinModal(null);
     if ((txt||'').trim() !== 'ยืนยัน') return;
     const now = EOS.nowISO();
+    // abxStartAt = actual clinical ABX start (entered by doctor), fallback to approval time
+    const abxStartAt = decision==='continue' ? (abxActualStart || now) : null;
     setVitals(arr => arr.map(v => v.ts===ts ? {
       ...v, abxApproved:true, abxDecision:decision,
       abxBy:session.name, abxAt:now,
       abxReason: overrideReason,
-      abxStartAt: decision==='continue' ? now : null,
+      abxStartAt,
     } : v));
-    EOS.auditLog('ABX_DECISION', `${decision.toUpperCase()} by ${session.name} reason:${overrideReason} ts:${ts}`);
+    EOS.auditLog('ABX_DECISION', `${decision.toUpperCase()} by ${session.name} reason:${overrideReason} abxStart:${abxStartAt||'n/a'} ts:${ts}`);
   };
 
   // ── Nav counts ────────────────────────────────
@@ -146,8 +165,10 @@ function App() {
   patients.forEach(p => {
     const st = tpStatus(p, vitals);
     if (st.cat==='overdue'||st.cat==='soon') dueCount++;
-    vitalsFor(p.hn, vitals).forEach(v => { if (evalVitals(v).some(i=>i.sev==='red')) alertCount++; });
-    if (EOS.evalTrend(p.hn, vitals).length > 0) alertCount++; // trend-based alert
+    // Count distinct patients with any red vital (not per-timepoint)
+    const hasRed = vitalsFor(p.hn, vitals).some(v => evalVitals(v).some(i=>i.sev==='red'));
+    const hasTrend = EOS.evalTrend(p.hn, vitals).length > 0;
+    if (hasRed || hasTrend) alertCount++;
   });
   const abxPending = vitals.filter(v => EOS.ABX_TPS.has(v.ageHr) && !v.abxApproved).length;
 
@@ -276,6 +297,12 @@ function App() {
         {/* Content */}
         <div className="content">
           <div className="content-inner">
+          {gasLoading && (
+            <div className="banner teal" style={{margin:'0 0 14px',borderRadius:10}}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" style={{animation:'spin .75s linear infinite',flexShrink:0}}><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+              <span>กำลังโหลดข้อมูลจาก GAS…</span>
+            </div>
+          )}
             {view==='dashboard' && <Dashboard patients={patients} vitals={vitals} onOpenPatient={goPatient} onGo={setView}/>}
             {view==='patients'  && <PatientList patients={patients} vitals={vitals} onOpenPatient={goPatient}/>}
             {view==='triage'    && <Triage onCreated={handleCreatePatient} onCancel={()=>setView('dashboard')}/>}

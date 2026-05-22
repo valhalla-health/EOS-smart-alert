@@ -118,6 +118,13 @@ function doPost(e) {
       return out({ status: 'ok', email: user.email, name: user.name, role: user.role });
     }
 
+    // ── LOAD — ส่งคืน Triage + SerialPE ทั้งหมด ───────────
+    if (action === 'load') {
+      const user = verifyToken(token);
+      if (!user) return out({ status: 'unauthorized' });
+      return out({ status: 'ok', triage: readSheet('Triage'), serialPE: readSheet('SerialPE') });
+    }
+
     // ── DATA WRITE — ต้องผ่าน token ก่อน ──────────────────
     const user = verifyToken(token);
     if (!user) return out({ status: 'unauthorized' });
@@ -125,6 +132,13 @@ function doPost(e) {
     const sheetName = body.sheet;
     if (!sheetName || !ALLOWED_SHEETS.includes(sheetName)) {
       return out({ status: 'error', message: 'ไม่พบ Sheet เป้าหมาย: ' + sheetName });
+    }
+
+    // ── Role guard: nurses cannot write ABX approval fields ─
+    if (sheetName === 'SerialPE' && user.role === 'nurse') {
+      const forbidden = ['abxApproved', 'abxDecision', 'abxBy', 'abxStartAt'];
+      const hasForbidden = forbidden.some(f => body[f] !== undefined && body[f] !== null && body[f] !== false && body[f] !== '');
+      if (hasForbidden) return out({ status: 'error', message: 'Insufficient role for ABX approval' });
     }
 
     // ── Flatten nested intake object (Triage only) ─────────
@@ -155,12 +169,12 @@ function doPost(e) {
     if (tsNew) {
       const lastRow = sheet.getLastRow();
       if (lastRow > 1) {
-        const startRow = Math.max(2, lastRow - 199);
+        // Scan full sheet — not capped; GAS handles up to ~10k rows fine for NICU scale
         const tsColIdx = 1; // ts is always column A (schema[0])
-        const tsCol = sheet.getRange(startRow, tsColIdx, lastRow - startRow + 1, 1).getValues();
+        const tsCol = sheet.getRange(2, tsColIdx, lastRow - 1, 1).getValues();
         const idx   = tsCol.findIndex(r => String(r[0]).trim() === tsNew);
         if (idx >= 0) {
-          const targetRow = startRow + idx;
+          const targetRow = 2 + idx;
           sheet.getRange(targetRow, 1, 1, schema.length).setValues([schemaRow(schema, rowData)]);
           return out({ status: 'success', action: 'updated', sheet: sheetName });
         }
@@ -200,6 +214,26 @@ function flattenRow(body, sheetName) {
     }
   });
   return row;
+}
+
+/** อ่าน sheet ทั้งหมด → คืนเป็น array of objects (ใช้ใน action='load') */
+function readSheet(name) {
+  const sheet = getSpreadsheet().getSheetByName(name);
+  if (!sheet || sheet.getLastRow() < 2) return [];
+  const schema = SHEET_SCHEMA[name];
+  if (!schema) return [];
+  const numRows = sheet.getLastRow() - 1;
+  const values  = sheet.getRange(2, 1, numRows, schema.length).getValues();
+  return values
+    .map(row => {
+      const obj = {};
+      schema.forEach((key, i) => {
+        const v = row[i];
+        obj[key] = (v === '' || v === null || v === undefined) ? null : v;
+      });
+      return obj;
+    })
+    .filter(r => r.ts); // ข้ามแถวว่าง
 }
 
 /** สร้าง array ตาม schema order */

@@ -265,9 +265,9 @@ function PatientDetail({ patient: p, vitals, onBack, onAddPE, onDischarge, sessi
   });
   const intakeCat = riskCategory(intakeCalc);
 
-  // ABX timer (find last approved continue decision)
+  // ABX timer — prefer abxStartAt (actual clinical start) over abxAt (approval click)
   const abxEntry = all.filter(v=>v.abxApproved&&v.abxDecision==='continue').slice(-1)[0];
-  const abxStartedAt = abxEntry?.abxAt || null;
+  const abxStartedAt = abxEntry?.abxStartAt || abxEntry?.abxAt || null;
   const abxElapsedHr = abxStartedAt ? (Date.now()-new Date(abxStartedAt))/3600000 : 0;
   const abxRemainingHr = Math.max(0, 48 - abxElapsedHr);
   const needReCulture = abxStartedAt && abxElapsedHr >= 36 &&
@@ -527,7 +527,7 @@ function PatientList({ patients, vitals, onOpenPatient }) {
           <tbody>
             {filtered.map(p => {
               const st = tpStatus(p, vitals);
-              const cal = calcEOSRisk({ga:p.ga,romHours:p.intake?.rom||0,maternalTemp:p.intake?.fever||37,gbsStatus:p.intake?.gbs||'unk',iapStatus:p.intake?.iap||'none'});
+              const cal = calcEOSRisk({gaWeeks:Math.floor(p.ga||39),gaDays:Math.round(((p.ga||39)%1)*7),romHours:p.intake?.rom||0,maternalTempC:p.intake?.fever||37,gbsStatus:p.intake?.gbs||'unk',iapType:p.intake?.iap==='adequate'?'broad_4plus':p.intake?.iap==='partial'?'broad_2to4':'none',incidence:0.5,version:'2024'});
               const cat = riskCategory(cal);
               return (
                 <tr key={p.hn} onClick={()=>onOpenPatient(p.hn)} style={{cursor:'pointer'}}>
@@ -560,7 +560,7 @@ function Triage({ onCreated, onCancel }) {
   const [q1, setQ1] = useState(null);
   const [q2, setQ2] = useState(null);
   const [q3, setQ3] = useState(null);
-  const [form, setForm] = useState({ motherName:'', hn:'', ga:38, bw:3000, bed:'NICU-', feverTemp:38.6, rom:12, gbsStatus:'unk', chorio:false });
+  const [form, setForm] = useState({ motherName:'', hn:'', sex:'M', ga:38, bw:3000, bed:'NICU-', feverTemp:38.6, rom:12, gbsStatus:'unk', chorio:false });
   const upd = (k,v) => setForm(f=>({...f,[k]:v}));
 
   let current=1;
@@ -580,7 +580,7 @@ function Triage({ onCreated, onCancel }) {
     const p = {
       hn: form.hn||`68/${10000+Math.floor(Math.random()*9000)}`,
       name: 'Baby ของ '+form.motherName, motherName:form.motherName,
-      sex:'M', ga:+form.ga, bw:+form.bw, bed:form.bed,
+      sex:form.sex||'M', ga:+form.ga, bw:+form.bw, bed:form.bed,
       dob:EOS.nowISO(),
       intake:{maternalFever:q1?'yes':'no',fever:q1?+form.feverTemp:null,chorio:form.chorio||false,gbs:form.gbsStatus,rom:+form.rom,iap:q3===true?'adequate':q3===false?'none':'partial'},
       triageOutcome:outcome.type, isSerialPE:outcome.type!=='observe', archived:false,
@@ -615,10 +615,13 @@ function Triage({ onCreated, onCancel }) {
               <div className="field"><label>ชื่อมารดา *</label><input value={form.motherName} onChange={e=>upd('motherName',e.target.value)} placeholder="คุณ..."/></div>
               <div className="field"><label>HN</label><input className="mono" value={form.hn} onChange={e=>upd('hn',e.target.value)} placeholder="68/XXXXX"/></div>
             </div>
-            <div className="row-3 mt-12">
+            <div className="row-2 mt-12">
+              <div className="field"><label>เพศทารก <span style={{color:'var(--red-2)',fontSize:11}}>*</span></label><div className="chip-group mt-8"><button type="button" className={`chip ${form.sex==='M'?'active':''}`} onClick={()=>upd('sex','M')}>♂ ชาย</button><button type="button" className={`chip ${form.sex==='F'?'active':''}`} onClick={()=>upd('sex','F')}>♀ หญิง</button></div></div>
+              <div className="field"><label>เตียง / ห้อง</label><input value={form.bed} onChange={e=>upd('bed',e.target.value)}/></div>
+            </div>
+            <div className="row-2 mt-12">
               <div className="field"><label>GA (wk) <span style={{color:'var(--red-2)',fontSize:11}}>≥34 wk เท่านั้น</span></label><input className="mono" type="number" step="0.1" min="34" max="43" value={form.ga} onChange={e=>upd('ga',+e.target.value)} style={form.ga<34?{borderColor:'var(--red)'}:{}}/>{form.ga<34&&<div style={{color:'var(--red-2)',fontSize:11,marginTop:4}}>⚠️ EOS protocol สำหรับ GA ≥ 34 wk เท่านั้น</div>}</div>
               <div className="field"><label>BW (g)</label><input className="mono" type="number" value={form.bw} onChange={e=>upd('bw',+e.target.value)}/></div>
-              <div className="field"><label>เตียง / ห้อง</label><input value={form.bed} onChange={e=>upd('bed',e.target.value)}/></div>
             </div>
           </div>
           {questions.map(({ num, q, en, state, set, locked, yesClass, noClass, extra }) => (
@@ -1077,7 +1080,7 @@ function HandoffSummary({ patients, vitals }) {
         const done=doneTPs(p.hn,vitals), nxt=nextTP(p.hn,vitals);
         const abnorms=all.filter(v=>evalVitals(v).some(i=>i.sev==='red'));
         const lastIssues=last?evalVitals(last):[];
-        const cal=calcEOSRisk({ga:p.ga,romHours:p.intake?.rom||0,maternalTemp:p.intake?.fever||37,gbsStatus:p.intake?.gbs||'unk',iapStatus:p.intake?.iap||'none'});
+        const cal=calcEOSRisk({gaWeeks:Math.floor(p.ga||39),gaDays:Math.round(((p.ga||39)%1)*7),romHours:p.intake?.rom||0,maternalTempC:p.intake?.fever||37,gbsStatus:p.intake?.gbs||'unk',iapType:p.intake?.iap==='adequate'?'broad_4plus':p.intake?.iap==='partial'?'broad_2to4':'none',incidence:0.5,version:'2024'});
         const cat=riskCategory(cal);
         return (
           <div key={p.hn} className="card mb-12">
@@ -1175,7 +1178,8 @@ const ABX_REASONS = [
 
 function ABXApproval({ patients, vitals, onApprove, session }) {
   const { useState } = React;
-  const [reasons, setReasons] = useState({});
+  const [reasons,    setReasons]    = useState({});
+  const [abxStarts,  setAbxStarts]  = useState({}); // ts → actual ABX start ISO
   const rc = EOS.ROLE_CFG[session.role];
 
   if (!rc.canApproveAbx) return (
@@ -1234,13 +1238,24 @@ function ABXApproval({ patients, vitals, onApprove, session }) {
               </select>
             </div>
 
+            {/* Actual ABX start time — for accurate 48hr timer */}
+            <div className="field mt-10">
+              <label className="lbl">เวลาเริ่ม Antibiotic จริง <span style={{fontWeight:400,color:'var(--text-3)',fontSize:11}}>(ถ้าเริ่มก่อนกด Approve)</span></label>
+              <input type="datetime-local" className="input mono mt-6"
+                value={abxStarts[v.ts] || ''}
+                onChange={e=>setAbxStarts(s=>({...s,[v.ts]:e.target.value ? new Date(e.target.value).toISOString() : ''}))}
+                style={{fontSize:13}}
+              />
+              <div style={{fontSize:11,color:'var(--text-3)',marginTop:3}}>ปล่อยว่าง = ใช้เวลา Approve เป็นจุดเริ่มต้น</div>
+            </div>
+
             <div style={{display:'flex',gap:10,marginTop:12}}>
               <button className="btn btn-danger btn-sm" disabled={!selectedReason}
-                onClick={()=>onApprove(v.ts,'stop',pt?.name||v.hn,selectedReason)}>
+                onClick={()=>onApprove(v.ts,'stop',pt?.name||v.hn,selectedReason,abxStarts[v.ts]||null)}>
                 🛑 หยุด Antibiotic
               </button>
               <button className="btn btn-ghost btn-sm" disabled={!selectedReason}
-                onClick={()=>onApprove(v.ts,'continue',pt?.name||v.hn,selectedReason)}>
+                onClick={()=>onApprove(v.ts,'continue',pt?.name||v.hn,selectedReason,abxStarts[v.ts]||null)}>
                 ▶️ ต่อ Antibiotic
               </button>
               {!selectedReason && <span style={{fontSize:11,color:'var(--text-3)',alignSelf:'center'}}>เลือกเหตุผลก่อน</span>}

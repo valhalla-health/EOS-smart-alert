@@ -9,7 +9,7 @@ const EOS = window.EOS = (() => {
   const OFFSETS    = {'1-2 hr':1.5,'3-4 hr':3.5,'10 hr':10,'18 hr':18,'22 hr':22,'36 hr':36,'44 hr':44};
   const ABX_TPS    = new Set(['36 hr','44 hr']);
   const SESSION_HR = 8;
-  const DEFAULT_WEBHOOK = 'https://script.google.com/macros/s/AKfycbyeF4SJ_EK5JBZDkUknY1uGzXGJIzLGCUrzVhXrkbXREwgxmbXb9qzkOVzpB0-Ro4sH/exec';
+  const DEFAULT_WEBHOOK = 'https://script.google.com/macros/s/AKfycbymZoPlUF1NCot_OMsm3oEzzVxq7Un5VjpVrTE2xQLLadQzvYzkq5H7NinD8UipPouF/exec';
 
   const RANGES = {
     T:    {lo:36.5,hi:37.4,hardLo:36.0,hardHi:38.0,unit:'°C'},
@@ -106,10 +106,8 @@ const EOS = window.EOS = (() => {
     const t = setTimeout(()=>ctrl.abort(), ms);
     return fetch(url, {...opts, signal:ctrl.signal}).finally(()=>clearTimeout(t));
   };
-  const getToken = () => {
-    const s = sj(sessionStorage.getItem('eos_sess'), null);
-    return s?.token || null;
-  };
+  // getToken — respects 8hr session expiry (via getSession, not raw sessionStorage read)
+  const getToken = () => getSession()?.token || null;
 
   const syncRow = async (sheet, row) => {
     const url   = getCfg().url || DEFAULT_WEBHOOK;
@@ -136,6 +134,57 @@ const EOS = window.EOS = (() => {
       return data; // ส่งคืน object เต็ม: {status:'ok'|'unauthorized', email, name, role}
     } catch (e) {
       return { status:'error', message: e?.message||'unknown' };
+    }
+  };
+
+  /** loadFromGAS — โหลด Triage + SerialPE จาก GAS หลัง login */
+  const loadFromGAS = async (tokenOverride) => {
+    const url = getCfg().url || DEFAULT_WEBHOOK;
+    const tok = tokenOverride || getToken();
+    if (!tok) return { ok: false };
+    try {
+      const r = await fetchT(url, {
+        method: 'POST', headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify({ action: 'load', token: tok }),
+      }, 20000);
+      if (!r.ok) return { ok: false };
+      const data = await r.json();
+      if (data.status !== 'ok') return { ok: false };
+
+      // Re-assemble intake object from flat Triage columns
+      const patients = (data.triage || []).map(p => ({
+        ...p,
+        ga:        p.ga   != null ? Number(p.ga)   : 39,
+        bw:        p.bw   != null ? Number(p.bw)   : 3000,
+        archived:  p.archived  === true || String(p.archived).toUpperCase()  === 'TRUE',
+        isSerialPE:p.isSerialPE=== true || String(p.isSerialPE).toUpperCase()=== 'TRUE',
+        intake: {
+          chorio:       p.chorio        ?? false,
+          maternalFever:p.maternalFever ?? 'no',
+          fever:        p.fever  != null ? Number(p.fever) : null,
+          gbs:          p.gbs   ?? 'unk',
+          rom:          p.rom   != null ? Number(p.rom)   : 0,
+          iap:          p.iap   ?? 'none',
+        },
+        synced: true,
+      }));
+
+      // Re-assemble SerialPE rows
+      const vitals = (data.serialPE || []).map(v => ({
+        ...v,
+        T:    v.T    != null ? Number(v.T)    : null,
+        P:    v.P    != null ? Number(v.P)    : null,
+        R:    v.R    != null ? Number(v.R)    : null,
+        SpO2: v.SpO2 != null ? Number(v.SpO2) : null,
+        rd:   v.rd   ? String(v.rd).split('|').filter(Boolean) : [],
+        abxApproved: v.abxApproved === true || String(v.abxApproved).toUpperCase() === 'TRUE',
+        synced: true,
+      }));
+
+      return { ok: true, patients, vitals };
+    } catch (e) {
+      console.error('loadFromGAS:', e.message);
+      return { ok: false };
     }
   };
 
@@ -166,15 +215,18 @@ const EOS = window.EOS = (() => {
   // ── VITAL EVALUATION ────────────────────────────────────
 
   /**
-   * evalTrend — KP "Equivocal" criterion detection across consecutive PEs
-   * Returns issues[] if HR/RR/Temp/RD abnormal in ≥2 consecutive readings
-   * (simulates "persistent physiologic abnormality")
+   * evalTrend — KP "Equivocal" criterion: persistent physiologic abnormality
+   * Requires ≥ 2 consecutive abnormal readings AND gap ≥ 2 hr between them.
+   * Returns issues[] with duration label for display.
    */
   const evalTrend = (hn, store) => {
     const vits = vitalsFor(hn, store);
     if (vits.length < 2) return [];
-    const last2 = vits.slice(-2);
-    const issues = [];
+    const last2   = vits.slice(-2);
+    const gapHr   = (new Date(last2[1].ts) - new Date(last2[0].ts)) / 3600000;
+    if (gapHr < 2) return []; // gap too short — not "persistent" by KP criterion
+    const durLabel = `${Math.round(gapHr * 10) / 10} hr`;
+    const issues   = [];
 
     // Check each numeric vital: both readings must be outside normal (lo/hi)
     [['P', 'HR'], ['R', 'RR'], ['T', 'Temp']].forEach(([k, label]) => {
@@ -187,13 +239,13 @@ const EOS = window.EOS = (() => {
       if (allAbnormal) {
         const lastVal = last2[last2.length - 1][k];
         const sev = (+lastVal < r.hardLo || +lastVal > r.hardHi) ? 'red' : 'amber';
-        issues.push({ k: label, txt: `persistent ${label}=${lastVal}${r.unit}`, sev, trend: true });
+        issues.push({ k: label, txt: `persistent ${label}=${lastVal}${r.unit} (${durLabel})`, sev, trend: true });
       }
     });
 
     // Persistent respiratory distress (both readings have rd)
     if (last2.every(v => v.rd && v.rd.length > 0)) {
-      issues.push({ k: 'RD', txt: 'persistent respiratory distress', sev: 'red', trend: true });
+      issues.push({ k: 'RD', txt: `persistent respiratory distress (${durLabel})`, sev: 'red', trend: true });
     }
 
     return issues;
@@ -371,6 +423,7 @@ const EOS = window.EOS = (() => {
     getUsers, saveUsers, findStaffByEmail,
     auditLog, getCfg, setCfg, syncRow, loginGAS, getToken, fetchT,
     calcEOSTable,
+    loadFromGAS,
     nowISO, maskHn, esc, fmtTime, fmtDateTime, fmtRelative,
     evalVitals, evalTrend, vitalFlag, calcEOSRisk, riskCategory,
     ageHours, vitalsFor, doneTPs, nextTP, tpDueAt, tpStatus,
