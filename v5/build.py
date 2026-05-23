@@ -56,7 +56,7 @@ _BABEL_SRC_RE  = re.compile(r'<script[^>]+type="text/babel"[^>]+src="src/[^"]+"[
 # Remove CDN <script> blocks (multi-line, with integrity attr)
 _REACT_CDN_RE  = re.compile(
     r'<!-- React \+ Babel.*?-->\s*'
-    r'(<script src="https://unpkg\.com/react[^"]*"[^>]*(?:integrity[^>]*)?>.*?</script>\s*){1,4}',
+    r'(<script src="https://unpkg\.com/(?:react|@babel)[^"]*"[^>]*(?:integrity[^>]*)?>.*?</script>\s*){1,4}',
     re.IGNORECASE | re.DOTALL
 )
 
