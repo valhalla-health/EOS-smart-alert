@@ -1639,7 +1639,7 @@ function RiskTrendChart({ patient: p, vitals, birthRisk }) {
 
   const pts = [
     { label:'Birth', risk:birthRisk, color:'var(--text-2)' },
-    ...all.map(v => { const c=catMult(v); return { label:v.ageHr.replace(' hr','h'), risk:Math.round(birthRisk*c.mult*100)/100, color:c.color, cat:c.label }; }),
+    ...all.map(v => { const c=catMult(v); return { label:(v.ageHr||'').replace(' hr','h'), risk:Math.round(birthRisk*c.mult*100)/100, color:c.color, cat:c.label }; }),
   ];
 
   const W=280, H=72, PAD=28;
@@ -2004,7 +2004,7 @@ function PatientList({ patients, vitals, onOpenPatient }) {
               <div className="pt-mc-top">
                 <StatusDot patient={p} vitals={vitals}/>
                 <div className="pt-mc-name">
-                  <div className="pt-mc-baby">{p.name.replace('Baby ของ ','')}</div>
+                  <div className="pt-mc-baby">{(p.name||'').replace('Baby ของ ','')}</div>
                   <div className="pt-mc-mother">{p.motherName}</div>
                 </div>
                 <span className="pt-mc-bed">{p.bed||p.hn}</span>
@@ -3073,9 +3073,7 @@ function UserManagement({ session }) {
 Object.assign(window, {
   Dashboard, PatientDetail, PatientList, Triage, PEForm, Calculator,
   AlertsLog, HandoffSummary, Schedule, ABXApproval, AllRecords, QualityMetrics,
-  AuditLog, Config, UserManagement, PatientCard, SparkTile, StatusDot,
-});
-
+  AuditLog, Config, UserManagement, PatientCard, SparkTile, Sta
 
 // ──── src/eos-app.jsx ────
 // EOS Smart Alert — App shell + routing
