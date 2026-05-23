@@ -65,7 +65,7 @@ function PatientCard({ patient: p, vitals, onClick }) {
     <div className="patient-card" onClick={onClick}>
       <div className="top-row">
         <StatusDot patient={p} vitals={vitals}/>
-        <span className="name" title={p.name} style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:120}}>{p.name.replace('Baby ของ ','')}</span>
+        <span className="name" title={p.name} style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:120}}>{(p.name||'').replace('Baby ของ ','')}</span>
         {hasTrend && <span className="badge badge-amber" style={{fontSize:9,padding:'1px 5px',flexShrink:0}}>TREND</span>}
         <span className="hn mono">{p.bed||p.hn}</span>
       </div>
@@ -1632,4 +1632,6 @@ Object.assign(window, {
   Dashboard, PatientDetail, PatientList, Triage, PEForm, Calculator,
   AlertsLog, HandoffSummary, Schedule, ABXApproval, AllRecords, QualityMetrics,
   AuditLog, Config, UserManagement, PatientCard, SparkTile, StatusDot,
+});
+,
 });
