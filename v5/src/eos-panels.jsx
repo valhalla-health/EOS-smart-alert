@@ -1631,4 +1631,7 @@ function UserManagement({ session }) {
 Object.assign(window, {
   Dashboard, PatientDetail, PatientList, Triage, PEForm, Calculator,
   AlertsLog, HandoffSummary, Schedule, ABXApproval, AllRecords, QualityMetrics,
-  AuditLog, Config, UserManagement, PatientCard, SparkTile, Sta
+  AuditLog, Config, UserManagement, PatientCard, SparkTile, StatusDot,
+});
+,
+});
