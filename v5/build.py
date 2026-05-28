@@ -29,6 +29,11 @@ JSX_FILES = [
     'src/eos-data.jsx',
     'src/eos-icons.jsx',
     'src/eos-auth.jsx',
+    'src/eos-primitives.jsx',
+    'src/eos-sentinel.jsx',
+    'src/eos-careplan.jsx',
+    'src/eos-evidence.jsx',
+    'src/eos-cmd.jsx',
     'src/eos-panels.jsx',
     'src/eos-app.jsx',
 ]

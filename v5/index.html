@@ -3,14 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>EOS Smart Alert · KCMH NICU</title>
+<title>EOS Smart Alert · v8 Sentinel · KCMH NICU</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <link rel="stylesheet" href="eos.css">
 </head>
-<body>
+<body data-theme="ot">
 <div id="root"></div>
 
 <!-- React + Babel from CDN (no bundler needed) -->
@@ -24,10 +24,15 @@
   integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y"
   crossorigin="anonymous"></script>
 
-<!-- Load order matters: data → icons → auth → panels → app -->
+<!-- Load order matters: data → icons → auth → primitives → sentinel → careplan → evidence → cmd → panels → app -->
 <script type="text/babel" src="src/eos-data.jsx"></script>
 <script type="text/babel" src="src/eos-icons.jsx"></script>
 <script type="text/babel" src="src/eos-auth.jsx"></script>
+<script type="text/babel" src="src/eos-primitives.jsx"></script>
+<script type="text/babel" src="src/eos-sentinel.jsx"></script>
+<script type="text/babel" src="src/eos-careplan.jsx"></script>
+<script type="text/babel" src="src/eos-evidence.jsx"></script>
+<script type="text/babel" src="src/eos-cmd.jsx"></script>
 <script type="text/babel" src="src/eos-panels.jsx"></script>
 <script type="text/babel" src="src/eos-app.jsx"></script>
 </body>
