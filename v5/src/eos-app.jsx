@@ -3,6 +3,37 @@
 
 const { useState: useStateApp, useEffect: useEffectApp, useMemo: useMemoApp } = React;
 
+// ── ERROR BOUNDARY — catches render crashes, shows message instead of blank ──
+class AppErrorBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { err: null }; }
+  static getDerivedStateFromError(err) { return { err }; }
+  render() {
+    if (!this.state.err) return this.props.children;
+    return (
+      <div style={{
+        position: 'fixed', inset: 0, display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center',
+        background: '#0a1628', color: '#fca5a5', fontFamily: 'monospace', padding: 40, gap: 16,
+      }}>
+        <div style={{ fontSize: 22, fontWeight: 700 }}>⚠ Render Error</div>
+        <div style={{ fontSize: 13, opacity: .7, maxWidth: 480, textAlign: 'center', wordBreak: 'break-all' }}>
+          {String(this.state.err?.message || this.state.err)}
+        </div>
+        <button
+          style={{ marginTop: 8, padding: '10px 24px', background: '#1e3a5f', border: '1px solid #3b82f6',
+            color: '#93c5fd', borderRadius: 8, cursor: 'pointer', fontSize: 14 }}
+          onClick={() => {
+            localStorage.clear();
+            sessionStorage.clear();
+            location.reload();
+          }}>
+          Clear cache &amp; reload
+        </button>
+      </div>
+    );
+  }
+}
+
 // ── MAIN APP ──────────────────────────────────────
 function App() {
   // ── Theme (simple localStorage, no tweaks dependency) ──
@@ -12,7 +43,7 @@ function App() {
     localStorage.setItem('eos_theme', theme);
   }, [theme]);
 
-  // ── Session — null = force login, except ?demo=1 ──
+  // ── Session — restore from sessionStorage, or force login ──
   const [session, setSession] = useStateApp(() => {
     if (new URLSearchParams(location.search).get('demo') === '1') {
       EOS.seedDemoData();
@@ -20,7 +51,7 @@ function App() {
       EOS.setSession(s);
       return s;
     }
-    return null;
+    return EOS.getSession(); // restore valid session (<8hr) instead of forcing re-login
   });
 
   // ── Patient / vitals state ──
@@ -75,6 +106,9 @@ function App() {
   // ── Auth guard ──
   if (!session) {
     const handleLogin = async sess => {
+      // Clear stale localStorage from previous session/demo before loading fresh data
+      setPatients([]);
+      setVitals([]);
       setSession(sess);
       setView('floor');
       setGasLoading(true);
@@ -345,4 +379,6 @@ function App() {
   );
 }
 
-ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+ReactDOM.createRoot(document.getElementById('root')).render(
+  <AppErrorBoundary><App/></AppErrorBoundary>
+);
