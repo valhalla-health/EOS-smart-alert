@@ -23,8 +23,10 @@ class AppErrorBoundary extends React.Component {
           style={{ marginTop: 8, padding: '10px 24px', background: '#1e3a5f', border: '1px solid #3b82f6',
             color: '#93c5fd', borderRadius: 8, cursor: 'pointer', fontSize: 14 }}
           onClick={() => {
-            localStorage.clear();
+            const theme = localStorage.getItem('eos_theme');
+            ['eos_patients','eos_vitals','eos_audit','eos_cfg'].forEach(k => localStorage.removeItem(k));
             sessionStorage.clear();
+            if (theme) localStorage.setItem('eos_theme', theme);
             location.reload();
           }}>
           Clear cache &amp; reload
@@ -45,7 +47,7 @@ function App() {
 
   // ── Session — restore from sessionStorage, or force login ──
   const [session, setSession] = useStateApp(() => {
-    if (new URLSearchParams(location.search).get('demo') === '1') {
+    if (new URLSearchParams(location.search).get('demo') === '1' && EOS.AUTH.ALLOW_DEMO_MODE) {
       EOS.seedDemoData();
       const s = { email: 'demo@eos.local', name: 'Dr. Demo', role: 'doctor', loginAt: EOS.nowISO(), token: null };
       EOS.setSession(s);
@@ -68,10 +70,11 @@ function App() {
   const [activeFloor, setActiveFloor] = useStateApp('22B');
 
   // ── Modals ──
-  const [vitalsTarget, setVitalsTarget] = useStateApp(null);
-  const [pinModal,     setPinModal]     = useStateApp(null);
-  const [cmdOpen,      setCmdOpen]      = useStateApp(false);
-  const [gasLoading,   setGasLoading]   = useStateApp(false);
+  const [vitalsTarget,  setVitalsTarget]  = useStateApp(null);
+  const [pinModal,      setPinModal]      = useStateApp(null);
+  const [cmdOpen,       setCmdOpen]       = useStateApp(false);
+  const [gasLoading,    setGasLoading]    = useStateApp(false);
+  const [savingVitals,  setSavingVitals]  = useStateApp(false);
 
   // ── Clock ──
   const [now, setNow] = useStateApp(new Date());
@@ -125,11 +128,15 @@ function App() {
   };
 
   const handleSaveVitals = entry => {
-    setVitals(arr => [...arr, entry]);
+    if (savingVitals) return; // M10: prevent double-submit
+    setSavingVitals(true);
+    // B1: stamp actual logged-in staff name (VitalsEntryV7 now passes staffName but guard here too)
+    const stamped = { ...entry, by: entry.by || session?.name || '?' };
+    setVitals(arr => [...arr, stamped]);
     setVitalsTarget(null);
-    EOS.syncRow('SerialPE', entry).then(ok => {
-      if (ok) setVitals(arr => arr.map(v => v.ts === entry.ts ? {...v, synced: true} : v));
-    });
+    EOS.syncRow('SerialPE', stamped).then(ok => {
+      if (ok) setVitals(arr => arr.map(v => v.ts === stamped.ts ? {...v, synced: true} : v));
+    }).finally(() => setSavingVitals(false));
   };
 
   const handleDischarge = async hn => {
@@ -160,7 +167,8 @@ function App() {
   // ── Sentinel-aware counts — MUST be before auth guard (Rules of Hooks) ──
   const counts = useMemoApp(() => {
     let critN = 0, abxPending = 0, watchN = 0;
-    patients.forEach(p => {
+    // Note: uses patients (full list) so counts include all; activePatients derived post-guard
+    patients.filter(p => !p.archived).forEach(p => {
       const s = window.Sentinel.score(p, vitals);
       const allV = EOS.vitalsFor(p.hn, vitals);
       const status = EOS.tpStatus(p, vitals);
@@ -183,7 +191,7 @@ function App() {
     items.push({ id: 'toggle-theme', label: theme === 'ot' ? 'เปลี่ยนเป็น Dawn (light)' : 'เปลี่ยนเป็น Operating Theatre (dark)', icon: 'eye', section: 'ACTIONS', action: () => setTheme(t => t === 'ot' ? 'dawn' : 'ot') });
     items.push({ id: 'reset-mock', label: 'รีเซ็ตข้อมูลสาธิต', icon: 'sync', section: 'ACTIONS', action: () => { const d = EOS.seedDemoData(); setPatients(d.patients); setVitals(d.vitals); setView('floor'); } });
     items.push({ id: 'logout', label: 'ออกจากระบบ', icon: 'logout', section: 'ACTIONS', action: doLogout });
-    patients.forEach(p => {
+    patients.filter(p => !p.archived).forEach(p => {
       const s = window.Sentinel.score(p, vitals);
       items.push({
         id: 'pt-' + p.hn,
@@ -221,7 +229,10 @@ function App() {
     return <LoginScreen onLogin={handleLogin}/>;
   }
 
-  const currentPatient = openHn ? patients.find(p => p.hn === openHn) : null;
+  // B2: exclude archived patients from all active views
+  const activePatients = patients.filter(p => !p.archived);
+
+  const currentPatient = openHn ? activePatients.find(p => p.hn === openHn) : null;
   const rc = EOS.ROLE_CFG[session.role] || EOS.ROLE_CFG['nurse'];
   const userInitials = session.name ? session.name.slice(0, 2) : 'NN';
 
@@ -252,24 +263,24 @@ function App() {
   const renderScreen = () => {
     switch (view) {
       case 'floor':
-        return <FloorV8 patients={patients} vitals={vitals}
+        return <FloorV8 patients={activePatients} vitals={vitals}
           onOpenPatient={openPatient}
           onTriage={() => setView('triage')}
           onEnterVitals={(p, tp) => setVitalsTarget({ patient: p, tp })}
           onGoHandoff={() => setView('handoff')}
           activeFloor={activeFloor} setActiveFloor={setActiveFloor}/>;
       case 'patient':
-        return <PatientV8 patient={currentPatient} patients={patients} vitals={vitals}
+        return <PatientV8 patient={currentPatient} patients={activePatients} vitals={vitals}
           onBack={goFloor} onOpenPatient={openPatient}
           onEnterVitals={(p, tp) => setVitalsTarget({ patient: p, tp })}
           onApproveAbx={handleApproveAbx}/>;
       case 'handoff':
-        return <HandoffV8 patients={patients} vitals={vitals}
+        return <HandoffV8 patients={activePatients} vitals={vitals}
           onOpenPatient={openPatient} onBack={goFloor}/>;
       case 'alerts':
-        return <AlertsV7 patients={patients} vitals={vitals} onOpenPatient={openPatient} onBack={goFloor}/>;
+        return <AlertsV7 patients={activePatients} vitals={vitals} onOpenPatient={openPatient} onBack={goFloor}/>;
       case 'abx':
-        return <AbxV7 patients={patients} vitals={vitals} onApprove={handleApproveAbx} onBack={goFloor}/>;
+        return <AbxV7 patients={activePatients} vitals={vitals} onApprove={handleApproveAbx} onBack={goFloor}/>;
       case 'calc':
         return <CalculatorV7 onCancel={goFloor}/>;
       case 'triage':
@@ -360,6 +371,8 @@ function App() {
       {/* ── MODALS ── */}
       {vitalsTarget && (
         <VitalsEntryV7 patient={vitalsTarget.patient} ageHr={vitalsTarget.tp}
+          staffName={session?.name || '?'}
+          saving={savingVitals}
           onSave={handleSaveVitals} onCancel={() => setVitalsTarget(null)}/>
       )}
 

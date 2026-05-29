@@ -191,11 +191,12 @@ function StepCard({ num, q, sub, children }) {
 // ════════════════════════════════════════
 // VITALS ENTRY — Big number pad, live abnormal flag
 // ════════════════════════════════════════
-function VitalsEntryV7({ patient, ageHr, onSave, onCancel }) {
+function VitalsEntryV7({ patient, ageHr, onSave, onCancel, staffName, saving }) {
   const fields = ['T', 'P', 'R', 'SpO2'];
   const [vals, setVals] = useStateScr({});
   const [skin, setSkin] = useStateScr('Rosy');
   const [rd, setRd] = useStateScr([]);
+  const [wellbeing, setWellbeing] = useStateScr('yes'); // M5: wellbeing field
   const [step, setStep] = useStateScr(0);
   const [text, setText] = useStateScr('');
 
@@ -221,6 +222,7 @@ function VitalsEntryV7({ patient, ageHr, onSave, onCancel }) {
   };
 
   const finish = () => {
+    if (saving) return;
     const final = { ...vals };
     if (currentKey && numericVal != null) final[currentKey] = numericVal;
     onSave({
@@ -230,7 +232,8 @@ function VitalsEntryV7({ patient, ageHr, onSave, onCancel }) {
       ...final,
       skin,
       rd,
-      by: 'พ.ยานี (Demo)',
+      wellbeing: wellbeing === 'no' ? 'no' : undefined, // M5: only store abnormal
+      by: staffName || EOS.getSession()?.name || '?', // B1: real staff name
     });
   };
 
@@ -243,7 +246,7 @@ function VitalsEntryV7({ patient, ageHr, onSave, onCancel }) {
           <button className="ico-btn" style={{ marginLeft: 'auto' }} onClick={onCancel}><Icon name="x" size={16}/></button>
         </div>
         <div className="sub" style={{ marginBottom: 14 }}>
-          {EOS.initials(patient.name)} · {patient.bed} · GA {EOS.fmtGA(patient.ga, patient.gaDays)} · BW {patient.bw}g
+          {EOS.initials(patient.name)} · {patient.bed} · GA {EOS.fmtGA(patient.ga, patient.gaDays)} · BW {patient.bw != null ? patient.bw + 'g' : '—'}
         </div>
 
         {/* progress */}
@@ -289,6 +292,13 @@ function VitalsEntryV7({ patient, ageHr, onSave, onCancel }) {
         ) : (
           <div>
             <div style={{ marginBottom: 16 }}>
+              <label style={{ display: 'block', fontSize: 12, color: 'var(--ink-2)', marginBottom: 8, fontWeight: 600 }}>อาการทั่วไป · Wellbeing</label>
+              <div className="chip-row">
+                <button className={`chip ${wellbeing === 'yes' ? 'on success' : ''}`} onClick={() => setWellbeing('yes')}>ดี (Well)</button>
+                <button className={`chip ${wellbeing === 'no' ? 'on danger' : ''}`} onClick={() => setWellbeing('no')}>ผิดปกติ (Unwell)</button>
+              </div>
+            </div>
+            <div style={{ marginBottom: 16 }}>
               <label style={{ display: 'block', fontSize: 12, color: 'var(--ink-2)', marginBottom: 8, fontWeight: 600 }}>สีผิว · Skin colour</label>
               <div className="chip-row">
                 {EOS.SKIN_OPTS.map(s => (
@@ -332,7 +342,9 @@ function VitalsEntryV7({ patient, ageHr, onSave, onCancel }) {
           {step < fields.length ? (
             <button className="btn btn-pri" onClick={next}>ถัดไป<Icon name="arrow-right" size={13}/></button>
           ) : (
-            <button className="btn btn-pri btn-lg" onClick={finish}><Icon name="check" size={14}/>บันทึก</button>
+            <button className="btn btn-pri btn-lg" disabled={saving} onClick={finish}>
+              <Icon name="check" size={14}/>{saving ? 'กำลังบันทึก…' : 'บันทึก'}
+            </button>
           )}
         </div>
       </div>
@@ -345,7 +357,13 @@ function VitalsEntryV7({ patient, ageHr, onSave, onCancel }) {
 // ════════════════════════════════════════
 function AlertsV7({ patients, vitals, onOpenPatient, onBack }) {
   const [filter, setFilter] = useStateScr('all');
-  const [dismissed, setDismissed] = useStateScr(() => new Set());
+  const [dismissed, setDismissed] = useStateScr(() => {
+    try { return new Set(JSON.parse(sessionStorage.getItem('eos_dismissed') || '[]')); } catch { return new Set(); }
+  });
+  // M9: persist dismissed across navigation
+  useEffectScr(() => {
+    try { sessionStorage.setItem('eos_dismissed', JSON.stringify([...dismissed])); } catch {}
+  }, [dismissed]);
 
   const alerts = useMemoScr(() => {
     const list = [];
@@ -478,7 +496,12 @@ function AbxV7({ patients, vitals, onApprove, onBack }) {
   }, [patients, vitals]);
 
   const [idx, setIdx] = useStateScr(0);
-  const item = pending[idx];
+  // M1: when pending shrinks after approval, keep idx in bounds
+  useEffectScr(() => {
+    if (pending.length > 0 && idx >= pending.length) setIdx(pending.length - 1);
+  }, [pending.length]);
+
+  const item = pending[Math.min(idx, Math.max(0, pending.length - 1))];
 
   if (pending.length === 0) {
     return (
@@ -530,7 +553,7 @@ function AbxV7({ patients, vitals, onApprove, onBack }) {
             <div>
               <h2 style={{ margin: 0, fontSize: 28, letterSpacing: '-.025em' }}>{EOS.initials(patient.name)}</h2>
               <div style={{ fontSize: 12, color: 'var(--ink-3)', marginTop: 4, fontFamily: 'var(--f-mono)' }}>
-                Mother {EOS.initials(patient.motherName)} · {EOS.floorLabel(patient.floor)} · GA {EOS.fmtGA(patient.ga, patient.gaDays)} · BW {patient.bw}g
+                Mother {EOS.initials(patient.motherName)} · {EOS.floorLabel(patient.floor)} · GA {EOS.fmtGA(patient.ga, patient.gaDays)} · BW {patient.bw != null ? patient.bw + 'g' : '—'}
               </div>
             </div>
           </div>
@@ -558,7 +581,7 @@ function AbxV7({ patients, vitals, onApprove, onBack }) {
             <div>
               <div className="section-lbl" style={{ margin: '0 0 8px' }}>Pre-test Risk Factors</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <RiskRow label="KP risk" value={`${patient.kpRisk?.toFixed(2)}/1k`} flag={patient.kpRisk >= 1}/>
+                <RiskRow label="KP risk" value={`${(patient.kpRisk ?? 0).toFixed(2)}/1k`} flag={(patient.kpRisk ?? 0) >= 1}/>
                 <RiskRow label="GA" value={EOS.fmtGA(patient.ga, patient.gaDays)} flag={patient.ga < 37}/>
                 <RiskRow label="GBS" value={(patient.intake?.gbs || '—').toUpperCase()} flag={patient.intake?.gbs === 'pos'}/>
                 <RiskRow label="ROM" value={`${patient.intake?.rom}h`} flag={patient.intake?.rom >= 18}/>
@@ -610,7 +633,7 @@ function AbxV7({ patients, vitals, onApprove, onBack }) {
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <button className="btn btn-success btn-xl"
-              onClick={() => { onApprove(vital.ts, 'stop', EOS.initials(patient.name)); if (idx < pending.length - 1) setIdx(idx + 1); }}>
+              onClick={() => onApprove(vital.ts, 'stop', EOS.initials(patient.name))}>
               <Icon name="check" size={18}/>
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', lineHeight: 1.2 }}>
                 <span style={{ fontSize: 10.5, fontWeight: 500, opacity: .7, textTransform: 'uppercase', letterSpacing: '.05em' }}>ทารกอาการดี</span>
@@ -618,7 +641,7 @@ function AbxV7({ patients, vitals, onApprove, onBack }) {
               </div>
             </button>
             <button className="btn btn-warn btn-xl"
-              onClick={() => { onApprove(vital.ts, 'continue', EOS.initials(patient.name)); if (idx < pending.length - 1) setIdx(idx + 1); }}>
+              onClick={() => onApprove(vital.ts, 'continue', EOS.initials(patient.name))}>
               <Icon name="warn" size={18}/>
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', lineHeight: 1.2 }}>
                 <span style={{ fontSize: 10.5, fontWeight: 500, opacity: .7, textTransform: 'uppercase', letterSpacing: '.05em' }}>ต้องเฝ้าระวังต่อ</span>
@@ -712,7 +735,8 @@ function TriageV7({ existingPatients, onCreatePatient, onCancel }) {
       : { tier: 'low', t: 'Low Risk', a: 'Routine observation' };
   const triageC = triageDec.tier === 'high' ? 'var(--r)' : triageDec.tier === 'medium' ? 'var(--a)' : 'var(--g)';
 
-  const step1Valid = floor && hn && babyFirst && babyLast;
+  const hnTaken = hn.trim() && existingPatients.some(p => p.hn === hn.trim() && !p.archived);
+  const step1Valid = floor && hn && babyFirst && babyLast && !hnTaken;
   const step2Valid = ga && bw;
   const canFinish = step1Valid && step2Valid;
 
@@ -771,7 +795,8 @@ function TriageV7({ existingPatients, onCreatePatient, onCancel }) {
                 </div>
                 <div className="field" style={{ marginBottom: 14, maxWidth: 300 }}>
                   <label>HN</label>
-                  <input type="text" placeholder="1234/69" value={hn} onChange={e => setHn(e.target.value)} style={{ fontFamily: 'var(--f-mono)' }}/>
+                  <input type="text" placeholder="1234/69" value={hn} onChange={e => setHn(e.target.value)} style={{ fontFamily: 'var(--f-mono)', borderColor: hnTaken ? 'var(--r)' : undefined }}/>
+                  {hnTaken && <div style={{ fontSize: 11.5, color: 'var(--r)', marginTop: 4 }}>⚠ HN นี้มีอยู่ในระบบแล้ว</div>}
                 </div>
                 <label style={{ fontSize: 12, color: 'var(--ink-2)', marginTop: 6, marginBottom: 6, display: 'block', fontWeight: 600 }}>ทารก</label>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 14 }}>
@@ -1413,7 +1438,7 @@ function PatientV8({ patient, patients, vitals, onBack, onEnterVitals, onApprove
             <div className="cp-stats">
               <span className="l">Age</span><span className="v n">{EOS.fmtAge(EOS.ageHours(patient))}</span>
               <span className="l">GA</span><span className="v n">{EOS.fmtGA(patient.ga, patient.gaDays)}</span>
-              <span className="l">BW</span><span className="v n">{patient.bw} g</span>
+              <span className="l">BW</span><span className="v n">{patient.bw != null ? patient.bw + ' g' : '—'}</span>
               <span className="l">ROM</span><span className={`v n ${patient.intake?.rom >= 18 ? 'flag' : ''}`}>{patient.intake?.rom}h</span>
               <span className="l">GBS</span><span className="v" style={{ color: patient.intake?.gbs === 'pos' ? 'var(--r)' : patient.intake?.gbs === 'neg' ? 'var(--g)' : 'var(--ink-2)' }}>{(patient.intake?.gbs || '—').toUpperCase()}</span>
               <span className="l">IAP</span><span className="v" style={{ fontSize: 12 }}>{patient.intake?.iap || 'none'}</span>

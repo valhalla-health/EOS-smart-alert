@@ -73,7 +73,7 @@ function verifyToken(token) {
 
     const rows = staffSheet.getDataRange().getValues();
     for (let i = 1; i < rows.length; i++) {
-      if (rows[i][0] === p.email) {
+      if (String(rows[i][0]).toLowerCase() === p.email.toLowerCase()) { // M2: case-insensitive
         const isActive = rows[i][3] === true || String(rows[i][3]).toUpperCase() === 'TRUE';
         if (!isActive) return null;
         return { email: p.email, name: rows[i][1], role: rows[i][2] };
@@ -185,11 +185,7 @@ function doPost(e) {
 
     // ── Append new row ─────────────────────────────────────
     sheet.appendRow(schemaRow(schema, rowData));
-
-    const totalRows = sheet.getLastRow();
-    if (totalRows <= 50) sheet.autoResizeColumns(1, schema.length);
-
-    return out({ status: 'success', action: 'appended', sheet: sheetName, totalRows });
+    return out({ status: 'success', action: 'appended', sheet: sheetName, totalRows: sheet.getLastRow() });
 
   } catch (err) {
     console.error('doPost error:', err.message, err.stack);
@@ -277,6 +273,31 @@ function setupSheets() {
       sheet.autoResizeColumns(1, schema.length);
     }
     Logger.log('✅ ' + name + ' ready');
+  });
+  updateSchemaHeaders(); // M3: add any new columns to existing sheets
+}
+
+/**
+ * updateSchemaHeaders — เพิ่มคอลัมน์ใหม่ที่ยังไม่มีในหัวตาราง (v8 fields)
+ * รันได้ซ้ำโดยไม่มีผลเสีย — ข้ามคอลัมน์ที่มีอยู่แล้ว
+ */
+function updateSchemaHeaders() {
+  const ss = getSpreadsheet();
+  Object.entries(SHEET_SCHEMA).forEach(([name, schema]) => {
+    const sheet = ss.getSheetByName(name);
+    if (!sheet || sheet.getLastRow() === 0) return;
+    const lastCol = sheet.getLastColumn();
+    const existing = sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(String);
+    let added = 0;
+    schema.forEach(col => {
+      if (!existing.includes(col)) {
+        const newCol = lastCol + added + 1;
+        sheet.getRange(1, newCol).setValue(col);
+        sheet.getRange(1, newCol).setFontWeight('bold').setBackground('#0f766e').setFontColor('#ffffff');
+        added++;
+      }
+    });
+    if (added > 0) Logger.log('✅ ' + name + ': added ' + added + ' column(s)');
   });
 }
 

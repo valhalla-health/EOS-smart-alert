@@ -4454,11 +4454,12 @@ function StepCard({ num, q, sub, children }) {
 // ════════════════════════════════════════
 // VITALS ENTRY — Big number pad, live abnormal flag
 // ════════════════════════════════════════
-function VitalsEntryV7({ patient, ageHr, onSave, onCancel }) {
+function VitalsEntryV7({ patient, ageHr, onSave, onCancel, staffName, saving }) {
   const fields = ['T', 'P', 'R', 'SpO2'];
   const [vals, setVals] = useStateScr({});
   const [skin, setSkin] = useStateScr('Rosy');
   const [rd, setRd] = useStateScr([]);
+  const [wellbeing, setWellbeing] = useStateScr('yes'); // M5: wellbeing field
   const [step, setStep] = useStateScr(0);
   const [text, setText] = useStateScr('');
 
@@ -4484,6 +4485,7 @@ function VitalsEntryV7({ patient, ageHr, onSave, onCancel }) {
   };
 
   const finish = () => {
+    if (saving) return;
     const final = { ...vals };
     if (currentKey && numericVal != null) final[currentKey] = numericVal;
     onSave({
@@ -4493,7 +4495,8 @@ function VitalsEntryV7({ patient, ageHr, onSave, onCancel }) {
       ...final,
       skin,
       rd,
-      by: 'พ.ยานี (Demo)',
+      wellbeing: wellbeing === 'no' ? 'no' : undefined, // M5: only store abnormal
+      by: staffName || EOS.getSession()?.name || '?', // B1: real staff name
     });
   };
 
@@ -4506,7 +4509,7 @@ function VitalsEntryV7({ patient, ageHr, onSave, onCancel }) {
           <button className="ico-btn" style={{ marginLeft: 'auto' }} onClick={onCancel}><Icon name="x" size={16}/></button>
         </div>
         <div className="sub" style={{ marginBottom: 14 }}>
-          {EOS.initials(patient.name)} · {patient.bed} · GA {EOS.fmtGA(patient.ga, patient.gaDays)} · BW {patient.bw}g
+          {EOS.initials(patient.name)} · {patient.bed} · GA {EOS.fmtGA(patient.ga, patient.gaDays)} · BW {patient.bw != null ? patient.bw + 'g' : '—'}
         </div>
 
         {/* progress */}
@@ -4552,6 +4555,13 @@ function VitalsEntryV7({ patient, ageHr, onSave, onCancel }) {
         ) : (
           <div>
             <div style={{ marginBottom: 16 }}>
+              <label style={{ display: 'block', fontSize: 12, color: 'var(--ink-2)', marginBottom: 8, fontWeight: 600 }}>อาการทั่วไป · Wellbeing</label>
+              <div className="chip-row">
+                <button className={`chip ${wellbeing === 'yes' ? 'on success' : ''}`} onClick={() => setWellbeing('yes')}>ดี (Well)</button>
+                <button className={`chip ${wellbeing === 'no' ? 'on danger' : ''}`} onClick={() => setWellbeing('no')}>ผิดปกติ (Unwell)</button>
+              </div>
+            </div>
+            <div style={{ marginBottom: 16 }}>
               <label style={{ display: 'block', fontSize: 12, color: 'var(--ink-2)', marginBottom: 8, fontWeight: 600 }}>สีผิว · Skin colour</label>
               <div className="chip-row">
                 {EOS.SKIN_OPTS.map(s => (
@@ -4595,7 +4605,9 @@ function VitalsEntryV7({ patient, ageHr, onSave, onCancel }) {
           {step < fields.length ? (
             <button className="btn btn-pri" onClick={next}>ถัดไป<Icon name="arrow-right" size={13}/></button>
           ) : (
-            <button className="btn btn-pri btn-lg" onClick={finish}><Icon name="check" size={14}/>บันทึก</button>
+            <button className="btn btn-pri btn-lg" disabled={saving} onClick={finish}>
+              <Icon name="check" size={14}/>{saving ? 'กำลังบันทึก…' : 'บันทึก'}
+            </button>
           )}
         </div>
       </div>
@@ -4608,7 +4620,13 @@ function VitalsEntryV7({ patient, ageHr, onSave, onCancel }) {
 // ════════════════════════════════════════
 function AlertsV7({ patients, vitals, onOpenPatient, onBack }) {
   const [filter, setFilter] = useStateScr('all');
-  const [dismissed, setDismissed] = useStateScr(() => new Set());
+  const [dismissed, setDismissed] = useStateScr(() => {
+    try { return new Set(JSON.parse(sessionStorage.getItem('eos_dismissed') || '[]')); } catch { return new Set(); }
+  });
+  // M9: persist dismissed across navigation
+  useEffectScr(() => {
+    try { sessionStorage.setItem('eos_dismissed', JSON.stringify([...dismissed])); } catch {}
+  }, [dismissed]);
 
   const alerts = useMemoScr(() => {
     const list = [];
@@ -4741,7 +4759,12 @@ function AbxV7({ patients, vitals, onApprove, onBack }) {
   }, [patients, vitals]);
 
   const [idx, setIdx] = useStateScr(0);
-  const item = pending[idx];
+  // M1: when pending shrinks after approval, keep idx in bounds
+  useEffectScr(() => {
+    if (pending.length > 0 && idx >= pending.length) setIdx(pending.length - 1);
+  }, [pending.length]);
+
+  const item = pending[Math.min(idx, Math.max(0, pending.length - 1))];
 
   if (pending.length === 0) {
     return (
@@ -4793,7 +4816,7 @@ function AbxV7({ patients, vitals, onApprove, onBack }) {
             <div>
               <h2 style={{ margin: 0, fontSize: 28, letterSpacing: '-.025em' }}>{EOS.initials(patient.name)}</h2>
               <div style={{ fontSize: 12, color: 'var(--ink-3)', marginTop: 4, fontFamily: 'var(--f-mono)' }}>
-                Mother {EOS.initials(patient.motherName)} · {EOS.floorLabel(patient.floor)} · GA {EOS.fmtGA(patient.ga, patient.gaDays)} · BW {patient.bw}g
+                Mother {EOS.initials(patient.motherName)} · {EOS.floorLabel(patient.floor)} · GA {EOS.fmtGA(patient.ga, patient.gaDays)} · BW {patient.bw != null ? patient.bw + 'g' : '—'}
               </div>
             </div>
           </div>
@@ -4821,7 +4844,7 @@ function AbxV7({ patients, vitals, onApprove, onBack }) {
             <div>
               <div className="section-lbl" style={{ margin: '0 0 8px' }}>Pre-test Risk Factors</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <RiskRow label="KP risk" value={`${patient.kpRisk?.toFixed(2)}/1k`} flag={patient.kpRisk >= 1}/>
+                <RiskRow label="KP risk" value={`${(patient.kpRisk ?? 0).toFixed(2)}/1k`} flag={(patient.kpRisk ?? 0) >= 1}/>
                 <RiskRow label="GA" value={EOS.fmtGA(patient.ga, patient.gaDays)} flag={patient.ga < 37}/>
                 <RiskRow label="GBS" value={(patient.intake?.gbs || '—').toUpperCase()} flag={patient.intake?.gbs === 'pos'}/>
                 <RiskRow label="ROM" value={`${patient.intake?.rom}h`} flag={patient.intake?.rom >= 18}/>
@@ -4873,7 +4896,7 @@ function AbxV7({ patients, vitals, onApprove, onBack }) {
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <button className="btn btn-success btn-xl"
-              onClick={() => { onApprove(vital.ts, 'stop', EOS.initials(patient.name)); if (idx < pending.length - 1) setIdx(idx + 1); }}>
+              onClick={() => onApprove(vital.ts, 'stop', EOS.initials(patient.name))}>
               <Icon name="check" size={18}/>
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', lineHeight: 1.2 }}>
                 <span style={{ fontSize: 10.5, fontWeight: 500, opacity: .7, textTransform: 'uppercase', letterSpacing: '.05em' }}>ทารกอาการดี</span>
@@ -4881,7 +4904,7 @@ function AbxV7({ patients, vitals, onApprove, onBack }) {
               </div>
             </button>
             <button className="btn btn-warn btn-xl"
-              onClick={() => { onApprove(vital.ts, 'continue', EOS.initials(patient.name)); if (idx < pending.length - 1) setIdx(idx + 1); }}>
+              onClick={() => onApprove(vital.ts, 'continue', EOS.initials(patient.name))}>
               <Icon name="warn" size={18}/>
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', lineHeight: 1.2 }}>
                 <span style={{ fontSize: 10.5, fontWeight: 500, opacity: .7, textTransform: 'uppercase', letterSpacing: '.05em' }}>ต้องเฝ้าระวังต่อ</span>
@@ -4975,7 +4998,8 @@ function TriageV7({ existingPatients, onCreatePatient, onCancel }) {
       : { tier: 'low', t: 'Low Risk', a: 'Routine observation' };
   const triageC = triageDec.tier === 'high' ? 'var(--r)' : triageDec.tier === 'medium' ? 'var(--a)' : 'var(--g)';
 
-  const step1Valid = floor && hn && babyFirst && babyLast;
+  const hnTaken = hn.trim() && existingPatients.some(p => p.hn === hn.trim() && !p.archived);
+  const step1Valid = floor && hn && babyFirst && babyLast && !hnTaken;
   const step2Valid = ga && bw;
   const canFinish = step1Valid && step2Valid;
 
@@ -5034,7 +5058,8 @@ function TriageV7({ existingPatients, onCreatePatient, onCancel }) {
                 </div>
                 <div className="field" style={{ marginBottom: 14, maxWidth: 300 }}>
                   <label>HN</label>
-                  <input type="text" placeholder="1234/69" value={hn} onChange={e => setHn(e.target.value)} style={{ fontFamily: 'var(--f-mono)' }}/>
+                  <input type="text" placeholder="1234/69" value={hn} onChange={e => setHn(e.target.value)} style={{ fontFamily: 'var(--f-mono)', borderColor: hnTaken ? 'var(--r)' : undefined }}/>
+                  {hnTaken && <div style={{ fontSize: 11.5, color: 'var(--r)', marginTop: 4 }}>⚠ HN นี้มีอยู่ในระบบแล้ว</div>}
                 </div>
                 <label style={{ fontSize: 12, color: 'var(--ink-2)', marginTop: 6, marginBottom: 6, display: 'block', fontWeight: 600 }}>ทารก</label>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 14 }}>
@@ -5676,7 +5701,7 @@ function PatientV8({ patient, patients, vitals, onBack, onEnterVitals, onApprove
             <div className="cp-stats">
               <span className="l">Age</span><span className="v n">{EOS.fmtAge(EOS.ageHours(patient))}</span>
               <span className="l">GA</span><span className="v n">{EOS.fmtGA(patient.ga, patient.gaDays)}</span>
-              <span className="l">BW</span><span className="v n">{patient.bw} g</span>
+              <span className="l">BW</span><span className="v n">{patient.bw != null ? patient.bw + ' g' : '—'}</span>
               <span className="l">ROM</span><span className={`v n ${patient.intake?.rom >= 18 ? 'flag' : ''}`}>{patient.intake?.rom}h</span>
               <span className="l">GBS</span><span className="v" style={{ color: patient.intake?.gbs === 'pos' ? 'var(--r)' : patient.intake?.gbs === 'neg' ? 'var(--g)' : 'var(--ink-2)' }}>{(patient.intake?.gbs || '—').toUpperCase()}</span>
               <span className="l">IAP</span><span className="v" style={{ fontSize: 12 }}>{patient.intake?.iap || 'none'}</span>
@@ -6160,8 +6185,10 @@ class AppErrorBoundary extends React.Component {
           style={{ marginTop: 8, padding: '10px 24px', background: '#1e3a5f', border: '1px solid #3b82f6',
             color: '#93c5fd', borderRadius: 8, cursor: 'pointer', fontSize: 14 }}
           onClick={() => {
-            localStorage.clear();
+            const theme = localStorage.getItem('eos_theme');
+            ['eos_patients','eos_vitals','eos_audit','eos_cfg'].forEach(k => localStorage.removeItem(k));
             sessionStorage.clear();
+            if (theme) localStorage.setItem('eos_theme', theme);
             location.reload();
           }}>
           Clear cache &amp; reload
@@ -6182,7 +6209,7 @@ function App() {
 
   // ── Session — restore from sessionStorage, or force login ──
   const [session, setSession] = useStateApp(() => {
-    if (new URLSearchParams(location.search).get('demo') === '1') {
+    if (new URLSearchParams(location.search).get('demo') === '1' && EOS.AUTH.ALLOW_DEMO_MODE) {
       EOS.seedDemoData();
       const s = { email: 'demo@eos.local', name: 'Dr. Demo', role: 'doctor', loginAt: EOS.nowISO(), token: null };
       EOS.setSession(s);
@@ -6205,10 +6232,11 @@ function App() {
   const [activeFloor, setActiveFloor] = useStateApp('22B');
 
   // ── Modals ──
-  const [vitalsTarget, setVitalsTarget] = useStateApp(null);
-  const [pinModal,     setPinModal]     = useStateApp(null);
-  const [cmdOpen,      setCmdOpen]      = useStateApp(false);
-  const [gasLoading,   setGasLoading]   = useStateApp(false);
+  const [vitalsTarget,  setVitalsTarget]  = useStateApp(null);
+  const [pinModal,      setPinModal]      = useStateApp(null);
+  const [cmdOpen,       setCmdOpen]       = useStateApp(false);
+  const [gasLoading,    setGasLoading]    = useStateApp(false);
+  const [savingVitals,  setSavingVitals]  = useStateApp(false);
 
   // ── Clock ──
   const [now, setNow] = useStateApp(new Date());
@@ -6262,11 +6290,15 @@ function App() {
   };
 
   const handleSaveVitals = entry => {
-    setVitals(arr => [...arr, entry]);
+    if (savingVitals) return; // M10: prevent double-submit
+    setSavingVitals(true);
+    // B1: stamp actual logged-in staff name (VitalsEntryV7 now passes staffName but guard here too)
+    const stamped = { ...entry, by: entry.by || session?.name || '?' };
+    setVitals(arr => [...arr, stamped]);
     setVitalsTarget(null);
-    EOS.syncRow('SerialPE', entry).then(ok => {
-      if (ok) setVitals(arr => arr.map(v => v.ts === entry.ts ? {...v, synced: true} : v));
-    });
+    EOS.syncRow('SerialPE', stamped).then(ok => {
+      if (ok) setVitals(arr => arr.map(v => v.ts === stamped.ts ? {...v, synced: true} : v));
+    }).finally(() => setSavingVitals(false));
   };
 
   const handleDischarge = async hn => {
@@ -6297,7 +6329,8 @@ function App() {
   // ── Sentinel-aware counts — MUST be before auth guard (Rules of Hooks) ──
   const counts = useMemoApp(() => {
     let critN = 0, abxPending = 0, watchN = 0;
-    patients.forEach(p => {
+    // Note: uses patients (full list) so counts include all; activePatients derived post-guard
+    patients.filter(p => !p.archived).forEach(p => {
       const s = window.Sentinel.score(p, vitals);
       const allV = EOS.vitalsFor(p.hn, vitals);
       const status = EOS.tpStatus(p, vitals);
@@ -6320,7 +6353,7 @@ function App() {
     items.push({ id: 'toggle-theme', label: theme === 'ot' ? 'เปลี่ยนเป็น Dawn (light)' : 'เปลี่ยนเป็น Operating Theatre (dark)', icon: 'eye', section: 'ACTIONS', action: () => setTheme(t => t === 'ot' ? 'dawn' : 'ot') });
     items.push({ id: 'reset-mock', label: 'รีเซ็ตข้อมูลสาธิต', icon: 'sync', section: 'ACTIONS', action: () => { const d = EOS.seedDemoData(); setPatients(d.patients); setVitals(d.vitals); setView('floor'); } });
     items.push({ id: 'logout', label: 'ออกจากระบบ', icon: 'logout', section: 'ACTIONS', action: doLogout });
-    patients.forEach(p => {
+    patients.filter(p => !p.archived).forEach(p => {
       const s = window.Sentinel.score(p, vitals);
       items.push({
         id: 'pt-' + p.hn,
@@ -6358,7 +6391,10 @@ function App() {
     return <LoginScreen onLogin={handleLogin}/>;
   }
 
-  const currentPatient = openHn ? patients.find(p => p.hn === openHn) : null;
+  // B2: exclude archived patients from all active views
+  const activePatients = patients.filter(p => !p.archived);
+
+  const currentPatient = openHn ? activePatients.find(p => p.hn === openHn) : null;
   const rc = EOS.ROLE_CFG[session.role] || EOS.ROLE_CFG['nurse'];
   const userInitials = session.name ? session.name.slice(0, 2) : 'NN';
 
@@ -6389,24 +6425,24 @@ function App() {
   const renderScreen = () => {
     switch (view) {
       case 'floor':
-        return <FloorV8 patients={patients} vitals={vitals}
+        return <FloorV8 patients={activePatients} vitals={vitals}
           onOpenPatient={openPatient}
           onTriage={() => setView('triage')}
           onEnterVitals={(p, tp) => setVitalsTarget({ patient: p, tp })}
           onGoHandoff={() => setView('handoff')}
           activeFloor={activeFloor} setActiveFloor={setActiveFloor}/>;
       case 'patient':
-        return <PatientV8 patient={currentPatient} patients={patients} vitals={vitals}
+        return <PatientV8 patient={currentPatient} patients={activePatients} vitals={vitals}
           onBack={goFloor} onOpenPatient={openPatient}
           onEnterVitals={(p, tp) => setVitalsTarget({ patient: p, tp })}
           onApproveAbx={handleApproveAbx}/>;
       case 'handoff':
-        return <HandoffV8 patients={patients} vitals={vitals}
+        return <HandoffV8 patients={activePatients} vitals={vitals}
           onOpenPatient={openPatient} onBack={goFloor}/>;
       case 'alerts':
-        return <AlertsV7 patients={patients} vitals={vitals} onOpenPatient={openPatient} onBack={goFloor}/>;
+        return <AlertsV7 patients={activePatients} vitals={vitals} onOpenPatient={openPatient} onBack={goFloor}/>;
       case 'abx':
-        return <AbxV7 patients={patients} vitals={vitals} onApprove={handleApproveAbx} onBack={goFloor}/>;
+        return <AbxV7 patients={activePatients} vitals={vitals} onApprove={handleApproveAbx} onBack={goFloor}/>;
       case 'calc':
         return <CalculatorV7 onCancel={goFloor}/>;
       case 'triage':
@@ -6497,6 +6533,8 @@ function App() {
       {/* ── MODALS ── */}
       {vitalsTarget && (
         <VitalsEntryV7 patient={vitalsTarget.patient} ageHr={vitalsTarget.tp}
+          staffName={session?.name || '?'}
+          saving={savingVitals}
           onSave={handleSaveVitals} onCancel={() => setVitalsTarget(null)}/>
       )}
 
