@@ -6229,36 +6229,12 @@ function App() {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  // ── Auth guard ──
-  if (!session) {
-    const handleLogin = async sess => {
-      // Clear stale localStorage from previous session/demo before loading fresh data
-      setPatients([]);
-      setVitals([]);
-      setSession(sess);
-      setView('floor');
-      setGasLoading(true);
-      try {
-        const result = await EOS.loadFromGAS(sess.token);
-        if (result.ok) {
-          EOS.setStore(EOS.STORE.patients, result.patients);
-          EOS.setStore(EOS.STORE.vitals,   result.vitals);
-          setPatients(result.patients);
-          setVitals(result.vitals);
-        }
-      } finally {
-        setGasLoading(false);
-      }
-    };
-    return <LoginScreen onLogin={handleLogin}/>;
-  }
-
-  // ── Handlers ──
+  // ── Handlers — defined before auth guard so useMemo below can reference them ──
   const openPatient = hn => { setOpenHn(hn); setView('patient'); };
   const goFloor = () => { setView('floor'); setOpenHn(null); };
 
   const doLogout = () => {
-    EOS.auditLog('LOGOUT', session.name);
+    EOS.auditLog('LOGOUT', session?.name || '?');
     EOS.clearSession();
     EOS.setStore(EOS.STORE.patients, []);
     EOS.setStore(EOS.STORE.vitals, []);
@@ -6300,14 +6276,14 @@ function App() {
     const abxStartAt = decision === 'continue' ? (abxActualStart || nowTs) : null;
     setVitals(arr => arr.map(v => v.ts === ts ? {
       ...v, abxApproved: true, abxDecision: decision,
-      abxBy: session.name, abxAt: nowTs,
+      abxBy: session?.name, abxAt: nowTs,
       abxReason: overrideReason,
       abxStartAt,
     } : v));
-    EOS.auditLog('ABX_DECISION', `${decision.toUpperCase()} by ${session.name} reason:${overrideReason} abxStart:${abxStartAt || 'n/a'} ts:${ts}`);
+    EOS.auditLog('ABX_DECISION', `${decision.toUpperCase()} by ${session?.name || '?'} reason:${overrideReason} abxStart:${abxStartAt || 'n/a'} ts:${ts}`);
   };
 
-  // ── Sentinel-aware counts ──
+  // ── Sentinel-aware counts — MUST be before auth guard (Rules of Hooks) ──
   const counts = useMemoApp(() => {
     let critN = 0, abxPending = 0, watchN = 0;
     patients.forEach(p => {
@@ -6321,7 +6297,7 @@ function App() {
     return { critN, abxPending, watchN };
   }, [patients, vitals]);
 
-  // ── Command palette items ──
+  // ── Command palette items — MUST be before auth guard (Rules of Hooks) ──
   const cmdItems = useMemoApp(() => {
     const items = [];
     items.push({ id: 'go-floor',   label: 'ไป Ward',           sub: '1', icon: 'beds',    section: 'NAVIGATION', action: () => { setView('floor'); setOpenHn(null); } });
@@ -6347,6 +6323,29 @@ function App() {
     });
     return items;
   }, [patients, vitals, theme]);
+
+  // ── Auth guard — after ALL hooks ──
+  if (!session) {
+    const handleLogin = async sess => {
+      setPatients([]);
+      setVitals([]);
+      setSession(sess);
+      setView('floor');
+      setGasLoading(true);
+      try {
+        const result = await EOS.loadFromGAS(sess.token);
+        if (result.ok) {
+          EOS.setStore(EOS.STORE.patients, result.patients);
+          EOS.setStore(EOS.STORE.vitals,   result.vitals);
+          setPatients(result.patients);
+          setVitals(result.vitals);
+        }
+      } finally {
+        setGasLoading(false);
+      }
+    };
+    return <LoginScreen onLogin={handleLogin}/>;
+  }
 
   const currentPatient = openHn ? patients.find(p => p.hn === openHn) : null;
   const rc = EOS.ROLE_CFG[session.role] || EOS.ROLE_CFG['nurse'];
