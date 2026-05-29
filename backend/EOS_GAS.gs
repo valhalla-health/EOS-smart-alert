@@ -17,10 +17,12 @@ const EOS_CLIENT_ID   = '658466851314-1a9ub51gpilmg32abobrtqp7772s8dbu.apps.goog
 const ALLOWED_SHEETS  = ['Triage', 'SerialPE', 'AuditLog', 'Calculator'];
 
 // Column order per sheet — determines header row + row insertion order
+// v8 fields appended at end so existing sheet data is not disrupted
 const SHEET_SCHEMA = {
   Triage:   ['ts','hn','name','motherName','sex','ga','bw','bed','dob',
               'triageOutcome','isSerialPE','chorio','maternalFever','fever',
-              'gbs','rom','iap','archived','staff'],
+              'gbs','rom','iap','archived','staff',
+              'kpRisk','floor','gaDays','birthAt'],
   SerialPE: ['ts','hn','ageHr','wellbeing','skin','T','P','R','SpO2','BP',
               'rd','management','abxApproved','abxDecision','staff','synced'],
   AuditLog: ['ts','staff','role','action','detail'],
@@ -216,20 +218,28 @@ function flattenRow(body, sheetName) {
   return row;
 }
 
-/** อ่าน sheet ทั้งหมด → คืนเป็น array of objects (ใช้ใน action='load') */
+/** อ่าน sheet ทั้งหมด → คืนเป็น array of objects (ใช้ใน action='load')
+ *  อ่านตาม header ชื่อ (ไม่ใช่ position) — ทนต่อการเพิ่ม/เรียงคอลัมน์ใหม่
+ */
 function readSheet(name) {
   const sheet = getSpreadsheet().getSheetByName(name);
   if (!sheet || sheet.getLastRow() < 2) return [];
-  const schema = SHEET_SCHEMA[name];
-  if (!schema) return [];
-  const numRows = sheet.getLastRow() - 1;
-  const values  = sheet.getRange(2, 1, numRows, schema.length).getValues();
+  const lastCol  = sheet.getLastColumn();
+  const numRows  = sheet.getLastRow() - 1;
+  const headers  = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+  const values   = sheet.getRange(2, 1, numRows, lastCol).getValues();
   return values
     .map(row => {
       const obj = {};
-      schema.forEach((key, i) => {
+      headers.forEach((key, i) => {
+        if (!key) return;
         const v = row[i];
-        obj[key] = (v === '' || v === null || v === undefined) ? null : v;
+        // Date objects → ISO string; empty/null → null
+        if (v instanceof Date) {
+          obj[key] = isNaN(v.getTime()) ? null : v.toISOString();
+        } else {
+          obj[key] = (v === '' || v === null || v === undefined) ? null : v;
+        }
       });
       return obj;
     })

@@ -1309,7 +1309,7 @@ function BedRowV8({ patient, vitals, onClick, onEnterVitals }) {
         <div className="meta">
           <span className="pill">HN {patient.hn}</span>
           <span>GA {EOS.fmtGA(patient.ga, patient.gaDays)}</span>
-          <span>BW {patient.bw}g</span>
+          <span>BW {patient.bw != null ? patient.bw + 'g' : '—'}</span>
         </div>
       </div>
       <div className="bed-age">

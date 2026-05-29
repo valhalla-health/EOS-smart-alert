@@ -143,13 +143,24 @@ const EOS = window.EOS = (() => {
       const data = await r.json();
       if (data.status !== 'ok') return { ok: false };
 
+      const safeNum = (v, lo, hi, def) => {
+        const n = Number(v);
+        return (v != null && !isNaN(n) && n >= lo && n <= hi) ? n : def;
+      };
       const patients = (data.triage || []).map(p => ({
         ...p,
-        ga:        p.ga   != null ? Number(p.ga)   : 39,
-        bw:        p.bw   != null ? Number(p.bw)   : 3000,
-        archived:  p.archived  === true || String(p.archived).toUpperCase()  === 'TRUE',
-        isSerialPE:p.isSerialPE=== true || String(p.isSerialPE).toUpperCase()=== 'TRUE',
-        // v8: ensure birthAt field
+        // ga: validate 22–44 weeks; reject impossible values (e.g. bw in wrong column)
+        ga:         safeNum(p.ga,  22, 44,   39),
+        gaDays:     safeNum(p.gaDays, 0, 6,  0),
+        // bw: validate 400–6000g
+        bw:         safeNum(p.bw, 400, 6000, null),
+        // kpRisk from GAS (v8 field); default 0 if missing
+        kpRisk:     safeNum(p.kpRisk, 0, 1000, 0),
+        // floor from GAS (v8 field); default '22B'
+        floor:      p.floor || '22B',
+        archived:   p.archived  === true || String(p.archived).toUpperCase()  === 'TRUE',
+        isSerialPE: p.isSerialPE === true || String(p.isSerialPE).toUpperCase() === 'TRUE',
+        // birthAt: prefer v8 field, fall back to dob (ISO string from GAS Date serialization)
         birthAt: p.birthAt || p.dob || null,
         intake: {
           chorio:       p.chorio        ?? false,
@@ -212,7 +223,7 @@ const EOS = window.EOS = (() => {
 
   // ── v8 AGE FORMAT UTILS ──────────────────────────────────
   const fmtAge = hr => {
-    if (hr == null) return '—';
+    if (hr == null || isNaN(hr) || !isFinite(hr)) return '—';
     if (hr < 1) return Math.round(hr * 60) + ' m';
     if (hr < 24) {
       const half = Math.round(hr * 2) / 2;
@@ -233,7 +244,7 @@ const EOS = window.EOS = (() => {
     return (hr / 24).toFixed(1) + ' d';
   };
   const fmtAgeParts = hr => {
-    if (hr == null) return { n: '—', unit: '' };
+    if (hr == null || isNaN(hr) || !isFinite(hr)) return { n: '—', unit: '' };
     if (hr < 1) return { n: String(Math.round(hr * 60)), unit: 'm' };
     if (hr < 24) {
       const half = Math.round(hr * 2) / 2;
