@@ -3,34 +3,6 @@
 
 const { useState: useStateApp, useEffect: useEffectApp, useMemo: useMemoApp } = React;
 
-// ── PIN / CONFIRM MODAL (v5 kept) ─────────────────
-function PinModal({ msg, onConfirm, onCancel }) {
-  const [txt, setTxt] = useStateApp('');
-  return (
-    <Modal onClose={onCancel} maxWidth={420}>
-      <div style={{ textAlign: 'center' }}>
-        <div style={{ width: 48, height: 48, borderRadius: 14, background: 'var(--m-tint)', display: 'grid', placeItems: 'center', margin: '0 auto 12px' }}>
-          <Icon name="lock" size={20} color="var(--m)"/>
-        </div>
-        <h2>ยืนยันการดำเนินการ</h2>
-        <div className="sub" style={{ whiteSpace: 'pre-line', marginBottom: 14 }}>{msg}</div>
-        <input type="text" value={txt} onChange={e => setTxt(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && onConfirm(txt)}
-          placeholder='พิมพ์ "ยืนยัน"' autoFocus
-          style={{
-            width: '100%', padding: '12px 14px', textAlign: 'center', letterSpacing: 1,
-            background: 'var(--surface-2)', border: '1.5px solid var(--line-2)', borderRadius: 10,
-            color: 'var(--ink)', fontSize: 16, outline: 'none', marginBottom: 14,
-          }}/>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button className="btn btn-ghost" style={{ flex: 1 }} onClick={onCancel}>ยกเลิก</button>
-          <button className="btn btn-pri" style={{ flex: 1 }} onClick={() => onConfirm(txt)}>ยืนยัน</button>
-        </div>
-      </div>
-    </Modal>
-  );
-}
-
 // ── MAIN APP ──────────────────────────────────────
 function App() {
   // ── Theme (simple localStorage, no tweaks dependency) ──
