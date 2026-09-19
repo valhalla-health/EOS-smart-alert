@@ -9,7 +9,7 @@ param(
     [string]$m = ""
 )
 
-$root = "C:\Users\USER\Desktop\PraewPP\Web App Projects\EOS-Smart-Alert"
+$root = $PSScriptRoot   # this script sits at the repo root, wherever the repo lives
 $data = "$root\v5\src\eos-data.jsx"
 
 # --- show current URL ---
